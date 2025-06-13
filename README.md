@@ -8,7 +8,7 @@ This widget presents an interface that allows players to **draw, save, load and 
 
 
 ### DISCLAIMERS
-It's not a lightweight widget (by widget standards); if your computer struggles with performance — especially memory — this widget might cause some stutters; even if you have plenty of memory, this widget can reach the memory treshold allowed by Spring Engine, which force garbage collection at 1.2GB! (that doesn't necessarly means the widget is using all that memory, just that it produced enough garbage data that needs to be released), specially while using big layouts. I don't know if the memory is shared between all widgets or just one, but either way, you've been warned.
+It's not a lightweight widget (by widget standards); if your computer struggles with performance — especially memory — this widget might cause some stutters; even if you have plenty of memory, this widget can reach the memory treshold allowed by Spring Engine, which force garbage collection at 1.2GB! (that doesn't necessarly means the widget is using all that memory but it is occupying it, and has produced enough garbage data that needs to be released, when that happens the game might sttuter), specially while using big layouts. I don't know if the memory is shared between all widgets or just one, but either way, you've been warned.
 
 > ⚠️ This widget **might use file reading and writing** from your computer for saving/loading layouts.  
 > Please inspect the code and use the widget at your own risk. The Spring Engine (as far as I know) **does not allow a widget to access files outside the widget directory** for obvious security reasons. Performance wise, disk will be used only when a file is writen or read.
@@ -76,17 +76,6 @@ It's not a lightweight widget (by widget standards); if your computer struggles 
 <p align="center">
   <img src="images/waterandterrain.jpg" width="240" alt="Elevation">
 </p>
-
---
-
-### FAQ
-
-**Q: My game stutters from time to time.**  
-**A:**  
-
-- It might happen. This widget can use a lot of memory. Lua uses garbage collection, so memory handling can be unpredictable. After rendering the layout, the widget will be closed and released from the active widgets for that game, so it will not cause problems after being used.
-- This happens more often with **larger layouts** (more building units).  
-- This occurs more frequently when **placing a loaded layout**.
 
 --
 
