@@ -46,7 +46,8 @@ local originalLayoutToPlace = nil --Layout loaded. Might be possible to remove t
 local dragging = false
 local dragStart = nil
 local layoutInverted = false
-
+local snapLoadedLayoutToSmallest = false --Snap loaded layout might not be a great idea as i first thought. Testing without snap for now. One problem is that if the layout is "zeroed" with a irregular building it might end up  missaligned
+local snapBuilding = true --Snap building block
 --Render stuff
 local drawLineQueue = {}
 local timer = 0
@@ -321,16 +322,20 @@ local function LoadBuildings(slot)
   local smallest = math.huge
 
   for line in file:lines() do
-    local dx, dz, size = line:match("(-?%d+),(-?%d+),(%d+)")
-    dx, dz, size = tonumber(dx), tonumber(dz), tonumber(size)
-    if dx and dz and size then
-      table.insert(layoutToPlace, {dx = dx, dz = dz, size = size})
-      if size < smallest then
-        smallest = size
-      end
-    end
+	local dx, dz, size = line:match("(-?%d+),(-?%d+),(%d+)")
+	dx, dz, size = tonumber(dx), tonumber(dz), tonumber(size)
+	if dx and dz and size then
+	  table.insert(layoutToPlace, {dx = dx, dz = dz, size = size})
+	  if size < smallest then
+		smallest = size
+	  end
+	end
   end
-
+  
+  if not snapLoadedLayoutToSmallest then
+	smallest = buildingTypes[1].size
+  end
+  
   file:close()
   if #layoutToPlace > 0 then
     Spring.Echo("[LayoutPlanner] Layout loaded. Click to place.")
@@ -389,6 +394,15 @@ local buttons = {
     color = {0.4, 1, 0.4, 0.8},
   },
   {
+    label = function() return "Snap: " .. (snapBuilding and "ON" or "OFF") end,
+    x = panelX + 300 + spacing * 3,
+    y = panelY + panelHeight - buttonH - spacing,
+    w = 150,
+    h = buttonH,
+    action = function() snapBuilding = not snapBuilding end,
+    color = {0.4, 1, 0.4, 0.8},
+  },
+  {
     label = function() return "Clear Layout" end,
     x = panelX + spacing,
     y = panelY + panelHeight - buttonH * 2 - spacing * 2,
@@ -404,7 +418,7 @@ local buttons = {
     w = 150,
     h = buttonH,
     action = CollectAndDraw,
-    color = {0.2, 1, 0.2, 0.8},
+    color = {0.2, 0.1, 0.9, 0.8},
   },
 }
 
@@ -470,7 +484,7 @@ function widget:DrawScreen()
   -- Placement hint text
   if layoutToPlace then
     local vsx, vsy = gl.GetViewSizes()
-	    local textWidth = 19 * 18
+	local textWidth = 19 * 18
     gl.Color(1, 1, 0.5, 1)
     gl.Text("Press [R] to rotate", (vsx - textWidth) / 2, vsy * 0.4, 18, "o")
 	gl.Text("Press [I] to invert", (vsx - textWidth) / 2, vsy * 0.4-20, 18, "o")
@@ -504,9 +518,10 @@ function widget:MousePress(mx, my, button)
 
   local bx, bz = WorldToBU(pos[1], pos[3])
   local size = buildingTypes[currentSizeIndex].size
-  bx = math.floor(bx / size) * size
-  bz = math.floor(bz / size) * size
-
+  if snapBuilding then
+    bx = math.floor(bx / size) * size
+    bz = math.floor(bz / size) * size
+  end
   if layoutToPlace then
     for _, b in ipairs(layoutToPlace) do
       local dx, dz = b.dx, b.dz
@@ -537,9 +552,10 @@ function widget:MouseRelease(mx, my, button)
   local size = dragStart.size
   local bx1, bz1 = dragStart.bx, dragStart.bz
   local bx2, bz2 = WorldToBU(pos[1], pos[3])
-  bx2 = math.floor(bx2 / size) * size
-  bz2 = math.floor(bz2 / size) * size
-
+  if snapBuilding then
+	bx2 = math.floor(bx2 / size) * size
+	bz2 = math.floor(bz2 / size) * size
+  end
   local minX, maxX = math.min(bx1, bx2), math.max(bx1, bx2)
   local minZ, maxZ = math.min(bz1, bz2), math.max(bz1, bz2)
 
@@ -558,7 +574,7 @@ function widget:DrawWorld()
   
   gl.DepthTest(true)
 
-  -- Draw placed buildings  
+  -- Draw layout
   for key, data in pairs(selectedBuildings) do
     local x, z = key:match("(-?%d+),(-?%d+)")
     local bx, bz = tonumber(x), tonumber(z)
@@ -581,9 +597,10 @@ function widget:DrawWorld()
   if pos then
     local bx, bz = WorldToBU(pos[1], pos[3])
     local size = buildingTypes[currentSizeIndex].size
-    bx = math.floor(bx / size) * size
-    bz = math.floor(bz / size) * size
-
+	if snapBuilding then
+      bx = math.floor(bx / size) * size
+      bz = math.floor(bz / size) * size
+    end
     gl.Color(1, 1, 0, 0.4)
 
     if layoutToPlace then
