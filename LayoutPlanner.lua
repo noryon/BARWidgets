@@ -114,7 +114,11 @@ local function ApplyRotationAndInversion(layout, rotation, inverted)
     local newDz = math.floor(cz + rz - b.size / 2 + 0.5)
 
     if inverted then
-      newDx = 2 * cx - newDx - b.size
+		if rotation == 0 or rotation == 180 then
+			newDx = 2 * cx - newDx - b.size
+		else
+			newDz = 2 * cz - newDz - b.size
+		end
     end
 
     table.insert(rotated, {dx = newDx, dz = newDz, size = b.size})
@@ -310,6 +314,10 @@ local function SaveBuildings(slot)
   Spring.Echo("[LayoutPlanner] Layout saved relative to:", minX, minZ)
 end
 
+local loadedMaxX = 0
+local loadedMaxZ = 0
+local smallest = math.huge
+
 local function LoadBuildings(slot)
   local filename = LAYOUT_FILES[slot]
   local file = io.open(filename, "r")
@@ -319,7 +327,9 @@ local function LoadBuildings(slot)
   end
 
   layoutToPlace = {}
-  local smallest = math.huge
+  smallest = math.huge
+  loadedMaxX = - math.huge
+  loadedMaxZ = - math.huge
 
   for line in file:lines() do
 	local dx, dz, size = line:match("(-?%d+),(-?%d+),(%d+)")
@@ -328,6 +338,13 @@ local function LoadBuildings(slot)
 	  table.insert(layoutToPlace, {dx = dx, dz = dz, size = size})
 	  if size < smallest then
 		smallest = size
+	  end
+	  if dx > loadedMaxX then
+		loadedMaxX = dx
+		Spring.Echo("pau "..dx)
+	  end
+	  if dz > loadedMaxZ then
+		loadedMaxZ = dz
 	  end
 	end
   end
@@ -518,13 +535,10 @@ function widget:MousePress(mx, my, button)
 
   local bx, bz = WorldToBU(pos[1], pos[3])
   local size = buildingTypes[currentSizeIndex].size
-  if snapBuilding then
-    bx = math.floor(bx / size) * size
-    bz = math.floor(bz / size) * size
-  end
+
   if layoutToPlace then
     for _, b in ipairs(layoutToPlace) do
-      local dx, dz = b.dx, b.dz
+      local dx, dz = b.dx - ((loadedMaxX+smallest)/2), b.dz - ((loadedMaxZ+smallest)/2)
       local s = b.size
       local rx, rz = dx, dz
 	  local pbx, pbz = bx + rx, bz + rz
@@ -534,7 +548,11 @@ function widget:MousePress(mx, my, button)
     originalLayoutToPlace = nil
     Spring.Echo("[LayoutPlanner] Layout placed.")
     return true
-  elseif drawingMode then
+  elseif drawingMode then 
+	if snapBuilding then
+	  bx = math.floor(bx / size) * size
+	  bz = math.floor(bz / size) * size
+	end
     dragging = true
     dragStart = { bx = bx, bz = bz, size = size }
     return true
@@ -597,15 +615,12 @@ function widget:DrawWorld()
   if pos then
     local bx, bz = WorldToBU(pos[1], pos[3])
     local size = buildingTypes[currentSizeIndex].size
-	if snapBuilding then
-      bx = math.floor(bx / size) * size
-      bz = math.floor(bz / size) * size
-    end
+
     gl.Color(1, 1, 0, 0.4)
 
     if layoutToPlace then
       for _, b in ipairs(layoutToPlace) do
-        local dx, dz = b.dx, b.dz
+        local dx, dz = b.dx -  ((loadedMaxX+smallest)/2), b.dz - ((loadedMaxZ+smallest)/2)
 		local s = b.size
         local rx, rz = dx, dz
 		
@@ -621,6 +636,10 @@ function widget:DrawWorld()
         end)
       end
     elseif drawingMode then
+	  if snapBuilding then
+	    bx = math.floor(bx / size) * size
+	    bz = math.floor(bz / size) * size
+	  end
       local wx, wz = BUToWorld(bx, bz)
       local wy = Spring.GetGroundHeight(wx, wz)
 
@@ -658,8 +677,9 @@ function widget:Update(dt)
   if timer > 0.1 then
     for i = 1, 10 do
       if #drawLineQueue == 0 then
-        Spring.Echo("[LayoutPlanner] All lines rendered. Disabling widget.")
-        widgetHandler:RemoveWidget(self)
+        Spring.Echo("[LayoutPlanner] All lines rendered..")
+		renderinToGame = false
+        --widgetHandler:RemoveWidget(self)
         return
       end
 
