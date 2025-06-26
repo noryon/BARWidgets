@@ -15,7 +15,7 @@ end
 ------------------------------------------------------------------------------------------
 local slots = 8                      --AMOUNT OF [SAVE/LOAD] SLOTS YOU WANT THE WIDGET TO DISPLAY   [0, ~)
 local slotsPerRow = 4                --HOW MANY SLOTS WILL BE DISPLAYED PER ROW                     [1, ~)
-local allowTranslationByKeys = false --WHETHER LAYOUT CAN BE SHIFTED USING KEYBOARD ARROW KEYS      [true, false]
+local allowTranslationByKeys = false --WHETHER LAYOUT CAN BE SHIFTED USING KEYBOARD KEYS            [true, false]
 local snapBuilding = true            --SNAP BUILDING TO GRID                                        [true, false]
 ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -916,7 +916,7 @@ function widget:Initialize()
   content:Add(MakeCheckbox({
     text = "Shift Layout",
 	checked = allowTranslationByKeys,
-	tooltip = "Whether the (green) layout can be shifted using the keyboard arrow keys",
+	tooltip = "Whether the (green) layout can be shifted using the keyboard WASD keys",
 	fontSize = 16,
     onToggle = function(state) 
 			     allowTranslationByKeys = not allowTranslationByKeys
@@ -983,7 +983,7 @@ function widget:DrawScreen()
 	local vsx, vsy = gl.GetViewSizes()
 	local textWidth = 19 * 18
     gl.Color(1, 1, 0.5, 1)
-    gl.Text("Translate layout using ARROW keys", (vsx - textWidth) / 2, vsy * 0.4, 18, "o")
+    gl.Text("Translate layout using WASD keys", (vsx - textWidth) / 2, vsy * 0.4, 18, "o")
   end
   
 end
@@ -1063,6 +1063,18 @@ end
 
 
 function widget:KeyPress(key, mods, isRepeat)
+Spring.Echo("ads "..tostring(key))
+
+--a 97
+--s 115
+--w 119
+--d 100
+
+--up 273
+--down 274
+--left 276
+--right 275
+
   if layoutToPlace then  
 	  if key == string.byte("r") then
 		layoutRotation = (layoutRotation + 90) % 360
@@ -1081,16 +1093,16 @@ function widget:KeyPress(key, mods, isRepeat)
   if allowTranslationByKeys and selectedBuildings then
 	local dx = 0
 	local dz = 0
-	if key == 273 then --up
+	if key == 119 then --up
 		dz = -1
 	end
-	if key == 274 then --down
+	if key == 115 then --down
 		dz = 1
 	end
-	if key == 276 then --left
+	if key == 97 then --left
 		dx = -1
 	end
-	if key == 275 then --right
+	if key == 100 then --right
 		dx = 1
 	end
 	if dx ~= 0 or dz ~= 0 then
