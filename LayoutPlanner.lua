@@ -1,7 +1,7 @@
 function widget:GetInfo()
   return {
     name    = "Layout Planner",
-    desc    = "Plan, save and load base layouts using in game interface. The widget uses the concept of Building Unit (BU), which is the smallest building unit allowed, which represents 16 units in world space.",
+    desc    = "Plan, save and load base layouts using in game interface.",
     author  = "Noryon",
     date    = "2025-06-12",
     license = "MIT",
@@ -10,33 +10,46 @@ function widget:GetInfo()
   }
 end
 
+------------------------------------------------------------------------------------------
+------------------------------USER PREFERENCES / DEFAULT VALUES---------------------------
+------------------------------------------------------------------------------------------
+local slots = 8                      --AMOUNT OF [SAVE/LOAD] SLOTS YOU WANT THE WIDGET TO DISPLAY   [0, ~)
+local slotsPerRow = 4                --HOW MANY SLOTS WILL BE DISPLAYED PER ROW                     [1, ~)
+local allowTranslationByKeys = false --WHETHER LAYOUT CAN BE SHIFTED USING KEYBOARD ARROW KEYS      [true, false]
+local snapBuilding = true            --SNAP BUILDING TO GRID                                        [true, false]
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+
+local function DisableWidget()
+	Spring.Echo("[LayoutPlanner] Closed")
+	widgetHandler:RemoveWidget(self)
+end
+
 -- Constants
 local BU_SIZE = 16  -- 1 BU = 16 game units (BU stand for Building Unit, the smallest unit size i could find, which is Cameras)
 local SQUARE_SIZE = 3 * BU_SIZE  -- 1 square = 3x3 BUs = 48 units
 local CHUNK_SIZE = 4 * SQUARE_SIZE  -- 1 chunk = 4x4 squares = 12x12 BUs
 
---TODO, maybe set more slots, or set a "textbox" where player can use type a name?
-local LAYOUT_FILES = {
-  "LuaUI/Widgets/layout_1.txt",
-  "LuaUI/Widgets/layout_2.txt",
-  "LuaUI/Widgets/layout_3.txt",
-  "LuaUI/Widgets/layout_4.txt"
-}
-
-
-local drawingToGame = false;
 
 -- Building types (in BUs)
---Enable/Disable sizes by uncomment/comment building type line below
 local buildingTypes = {
- -- { name = "1x1", size = 1, tooltip = "e.g.: Camera (lol)" }, --nobody really need this, probably. If you want it just uncomment this line
+ -- { name = "1x1", size = 1, tooltip = "e.g.: Camera (lol)" }, --nobody really need this, probably. Just uncomment this line if you think you really need this
   { name = "Small", size = 2, tooltip = "e.g.: Wall, Dragon's Maw/Claw/Fury"},
   { name = "Square", size = 3, tooltip = "e.g.: T1 Con. Turret, T1 Wind, T1 Converter"},
-  { name = "Big", size = 4, tooltip =  "e.g.: T2 Con. Turret, T2 Converter", "Basilica"},
+  { name = "Big", size = 4, tooltip =  "e.g.: T2 Con. Turret, T2 Converter, Basilica"},
   { name = "Large", size = 6, tooltip = "e.g.: AFUS, T3 Con. Turret, T2 Wind, Olympus, Basilisk" },
   { name = "Chunk", size = 12, tooltip = "e.g.: EFUS" },
 }
+
+
 -- Control Variables
+local drawingToGame = false;
+
 local selectedBuildings = {} --Stores the current working layout
 local drawingMode = false
 local currentSizeIndex = 1
@@ -47,7 +60,7 @@ local dragging = false
 local dragStart = nil
 local layoutInverted = false
 local snapLoadedLayoutToSmallest = false --Snap loaded layout might not be a great idea as i first thought. Testing without snap for now. One problem is that if the layout is "zeroed" with a irregular building it might end up  missaligned
-local snapBuilding = true --Snap building block
+
 --Render stuff
 local drawLineQueue = {}
 local timer = 0
@@ -62,6 +75,20 @@ local function BUToWorld(bx, bz)
   return bx * BU_SIZE, bz * BU_SIZE
 end
 
+local function TranslateLayout(dx, dz)
+  local newSelectedBuildings = {}
+  for key, value in pairs(selectedBuildings) do
+    local bx, bz = key:match("([^,]+),([^,]+)")
+    bx, bz = tonumber(bx), tonumber(bz)
+    if bx and bz then
+      local newBx, newBz = bx + dx, bz + dz
+      local newKey = newBx .. "," .. newBz
+      newSelectedBuildings[newKey] = value
+    end
+  end
+  selectedBuildings = newSelectedBuildings
+end
+
 local function ToggleBuilding(bx, bz, size)
   local key = bx .. "," .. bz
   if selectedBuildings[key] then
@@ -70,6 +97,12 @@ local function ToggleBuilding(bx, bz, size)
     selectedBuildings[key] = { size = size }
   end
 end
+
+local function ClearLayout()
+	selectedBuildings = {}
+	Spring.Echo("[LayoutPlanner] Clear layout")
+end
+
 --It gets a layout and returns a new one, rotated and inverted
 local function ApplyRotationAndInversion(layout, rotation, inverted)
   local cx, cz = 0, 0  -- center of the layout (in BU units)
@@ -284,7 +317,13 @@ local function SaveBuildings(slot)
     return
   end
 
-  local filename = LAYOUT_FILES[slot]
+  local filename = "LuaUI/Widgets/layout_"..slot..".txt"
+  local file = io.open(filename, "w")
+  if not file then
+    Spring.Echo("[LayoutPlanner] Failed to open file. \'"..filename.."\'")
+    return
+  end
+
   -- Align anchor to nearest square boundary
   local minX, minZ = math.huge, math.huge
   for key in pairs(selectedBuildings) do
@@ -295,14 +334,7 @@ local function SaveBuildings(slot)
       if z < minZ then minZ = z end
     end
   end
-
-
-  local file = io.open(filename, "w")
-  if not file then
-    Spring.Echo("[LayoutPlanner] Failed to open file.")
-    return
-  end
-
+  
   for key, data in pairs(selectedBuildings) do
     if type(key) == "string" then
       local x, z = key:match("(-?%d+),(-?%d+)")
@@ -311,7 +343,7 @@ local function SaveBuildings(slot)
     end
   end
   file:close()
-  Spring.Echo("[LayoutPlanner] Layout saved relative to:", minX, minZ)
+  Spring.Echo("[LayoutPlanner] Layout saved at slot "..tostring(slot))
 end
 
 local loadedMaxX = 0
@@ -319,7 +351,7 @@ local loadedMaxZ = 0
 local smallest = math.huge
 
 local function LoadBuildings(slot)
-  local filename = LAYOUT_FILES[slot]
+  local filename = "LuaUI/Widgets/layout_"..slot..".txt"
   local file = io.open(filename, "r")
   if not file then
     Spring.Echo("[LayoutPlanner] No saved layout found.")
@@ -341,14 +373,13 @@ local function LoadBuildings(slot)
 	  end
 	  if dx > loadedMaxX then
 		loadedMaxX = dx
-		Spring.Echo("pau "..dx)
 	  end
 	  if dz > loadedMaxZ then
 		loadedMaxZ = dz
 	  end
 	end
   end
-  
+  Spring.Echo("loaded "..tostring(loadedMaxX).." "..tostring(loadedMaxZ))
   if not snapLoadedLayoutToSmallest then
 	smallest = buildingTypes[1].size
   end
@@ -372,176 +403,609 @@ local function LoadBuildings(slot)
   selectedBuildings = {}
 end
 
-local panelX = 100
-local panelY = 370
-local panelWidth = 520
-local panelHeight = 230
+local gl = gl
+local glColor = gl.Color
+local glRect = gl.Rect
+local glText = gl.Text
+local glGetTextWidth = gl.GetTextWidth
+local currentToolTip = nil
+--------------------------------------------------------------------------------
+-- Base Component
 
-local buttonW = 100
-local buttonH = 30
-local spacing = 10
-local border = 4
-
-local buttons = {
-  {
-    label = function() return "Close Panel" end,
-    x = panelX + panelWidth - spacing - 120,
-    y = panelY + panelHeight + 3,
-    w = 120,
-    h = buttonH,
-    action = function() Spring.Echo("[LayoutPlanner] Disabling widget.") widgetHandler:RemoveWidget(self) end,
-    color = {1, 0.2, 0.2, 0.9}, -- red
-  },
-  {
-    label = function() return "Drawing: " .. (drawingMode and "ON" or "OFF") end,
-    x = panelX + spacing,
-    y = panelY + panelHeight - buttonH - spacing,
-    w = 150,
-    h = buttonH,
-    action = function() drawingMode = not drawingMode end,
-    color = {0.4, 0.6, 1, 0.8},
-  },
-  {
-    label = function() return "Size: " .. buildingTypes[currentSizeIndex].name end,
-    x = panelX + 150 + spacing * 2,
-    y = panelY + panelHeight - buttonH - spacing,
-    w = 150,
-    h = buttonH,
-    action = function() currentSizeIndex = currentSizeIndex % #buildingTypes + 1 end,
-    color = {0.4, 1, 0.4, 0.8},
-  },
-  {
-    label = function() return "Snap: " .. (snapBuilding and "ON" or "OFF") end,
-    x = panelX + 300 + spacing * 3,
-    y = panelY + panelHeight - buttonH - spacing,
-    w = 150,
-    h = buttonH,
-    action = function() snapBuilding = not snapBuilding end,
-    color = {0.4, 1, 0.4, 0.8},
-  },
-  {
-    label = function() return "Clear Layout" end,
-    x = panelX + spacing,
-    y = panelY + panelHeight - buttonH * 2 - spacing * 2,
-    w = buttonW+10,
-    h = buttonH,
-    action = function() selectedBuildings = {} end,
-    color = {1, 0.6, 0.2, 0.8},
-  },
-  {
-    label = function() return "Render To Game" end,
-    x = panelX + buttonW + spacing * 2 + 10,
-    y = panelY + panelHeight - buttonH * 2 - spacing * 2,
-    w = 150,
-    h = buttonH,
-    action = CollectAndDraw,
-    color = {0.2, 0.1, 0.9, 0.8},
-  },
-}
-
-local sizeButton = buttons[3]
-
-
--- Save/Load buttons (slot 1 to 4)
-local colors = {
-	{0.8, 0.1, 0.1, 0.8},
-	{0.1, 0.8, 0.1, 0.8},
-	{0.8, 0.1, 0.8, 0.8},
-	{0.8, 0.8, 0.1, 0.8},
-}
-
-for i = 1, 4 do
-  local bx = panelX + (i - 1) * (buttonW + spacing) + spacing 
-  local offset = 0;
-  table.insert(buttons, {
-	label = function() return "Save " .. i end,
-	x = bx,
-	y = panelY + buttonH + spacing * 2 + offset,
-	w = buttonW,
-	h = 25,
-	color = colors[i],
-	action = function() SaveBuildings(i) end,
-  })
-  table.insert(buttons, {
-	label = function() return "Load " .. i end,
-	x = bx,
-	y = panelY + spacing + offset,
-	w = buttonW,
-	h = 25,
-	color = colors[i],
-	action = function() LoadBuildings(i) end,
-  })
+local function BaseElement(params)
+  return {
+    x = params.x or 0,
+    y = params.y or 0,
+    width = params.width or 100,
+    height = params.height or 30,
+    bgColor = params.bgColor or {0.1, 0.1, 0.1, 0.8},
+    margin = params.margin or 2,
+    tooltip = params.tooltip,
+    Draw = function(self) end,
+    MousePress = function(self, mx, my, button) return false end,
+    KeyPress = function(self, char) end,
+    GetSize = function(self)
+      return self.width + 2 * self.margin, self.height + 2 * self.margin
+    end,
+	Hover = function(self, mx, my)
+		if self.tooltip ~= nil and self.tooltip ~= "" and
+		mx >= self.x and mx <= self.x + self.width and
+		my >= self.y and my <= self.y + self.height then
+			currentToolTip = self.tooltip
+			return true
+		else
+		    return false
+		end
+	end
+  }
 end
 
-function widget:DrawScreen()
-  -- Panel background
-  gl.Color(0, 0, 0, 1)
-  gl.Rect(panelX - border, panelY - border, panelX + panelWidth + border, panelY + panelHeight + border + buttonH + border)
-  
-  gl.Color(0.1, 0.1, 0.1, 1)
-  gl.Rect(panelX, panelY, panelX + panelWidth, panelY + panelHeight)
+--------------------------------------------------------------------------------
+-- Box (Container)
 
-  -- Title
-  gl.Color(0.9, 0.55, 0.05, 1)
-  gl.Text("Layout Planner", panelX + 10, panelY + panelHeight + 8, 20, "o")
-  
-  local mx, my = Spring.GetMouseState()
+local function Box(params)
+  local box = BaseElement(params)
+  box.orientation = params.orientation or "vertical"
+  box.padding = params.padding or 4
+  box.spacing = params.spacing or 4
+  box.children = {}
 
+  function box:Add(child)
+    table.insert(self.children, child)
+  end
   
+  local superHover = box.Hover
+  
+function box:Hover(mx, my)
+  for _, child in ipairs(self.children) do
+	if child:Hover(mx, my) then
+	  return true
+	end
+  end
+  return superHover(box, mx, my)
+end
 
-  -- Buttons
-  for _, btn in ipairs(buttons) do
-    local color = btn.color or {0.3, 0.3, 0.3, 0.8}
-    gl.Color(unpack(color))
-    gl.Rect(btn.x, btn.y, btn.x + btn.w, btn.y + btn.h)
-    gl.Color(1, 1, 1, 1)
-    gl.Text(btn.label(), btn.x + 10, btn.y + 8, 16, "o")
+function box:Draw()
+  glColor(self.bgColor)
+  glRect(self.x, self.y, self.x + self.width, self.y + self.height)
+
+  local cx = self.x + self.padding
+  local cy = self.y + self.height - self.padding
+
+  for _, child in ipairs(self.children) do
+    local cw, ch = child:GetSize()
+
+    -- Update child's position
+    if self.orientation == "vertical" then
+      cy = cy - ch - child.margin
+      child.x = cx + child.margin
+      child.y = cy
+      cy = cy - self.spacing
+    else
+      child.x = cx + child.margin
+      child.y = cy - ch - child.margin
+      cx = cx + cw + self.spacing
+    end
+
+    child:Draw()
+  end
+end
+
+function box:GetSize()
+  local totalWidth = 0
+  local totalHeight = 0
+  for _, child in ipairs(self.children) do
+    local cw, ch = child:GetSize()
+    if self.orientation == "vertical" then
+      totalHeight = totalHeight + ch + self.spacing
+      totalWidth = math.max(totalWidth, cw)
+    else
+      totalWidth = totalWidth + cw + self.spacing
+      totalHeight = math.max(totalHeight, ch)
+    end
+  end
+  totalWidth = totalWidth + 2 * self.padding
+  totalHeight = totalHeight + 2 * self.padding
+  self.width = totalWidth
+  self.height = totalHeight
+  return totalWidth, totalHeight
+end
+
+
+  function box:MousePress(mx, my, button)
+    for _, child in ipairs(self.children) do
+      if mx >= child.x and mx <= child.x + child.width and
+         my >= child.y and my <= child.y + child.height then
+        if child:MousePress(mx, my, button) then
+          return true
+        end
+      end
+    end
+    return false
   end
 
-  -- Placement hint text
+  function box:KeyPress(char)
+    for _, child in ipairs(self.children) do
+      if child.KeyPress then child:KeyPress(char) end
+    end
+  end
+
+  return box
+end
+
+--------------------------------------------------------------------------------
+-- Label
+
+local function MakeLabel(params)
+  local label = BaseElement(params)
+  label.text = params.text or ""
+  label.fontSize = params.fontSize or 14
+  label.fontColor = params.fontColor or {1, 1, 1, 1}
+
+  function label:GetSize()
+    local textWidth = glGetTextWidth(self.text) * self.fontSize
+    local textHeight = self.fontSize
+    self.width = textWidth + 10
+    self.height = textHeight + 18
+    return self.width + 2 * self.margin, self.height + 2 * self.margin
+  end
+
+  function label:Draw()
+    glColor(self.bgColor)
+    glRect(self.x, self.y, self.x + self.width, self.y + self.height)
+    glColor(self.fontColor)
+    glText(self.text, self.x + 5, self.y + (self.height - self.fontSize) / 2 + 2, self.fontSize, "")
+  end
+
+  return label
+end
+
+--------------------------------------------------------------------------------
+-- Button
+
+local function MakeButton(params)
+  local button = MakeLabel(params)
+  button.onClick = params.onClick or function() end
+
+  function button:MousePress(mx, my, buttonNum)
+    if mx >= self.x and mx <= self.x + self.width and
+       my >= self.y and my <= self.y + self.height then
+      self.onClick()
+      return true
+    end
+    return false
+  end
+
+  return button
+end
+
+--------------------------------------------------------------------------------
+-- Checkbox
+
+local function MakeCheckbox(params)
+  local cb = MakeLabel(params)
+  cb.checked = params.checked or false
+  cb.onToggle = params.onToggle or function() end
+
+  function cb:Draw()
+	--background
+    glColor(self.bgColor)
+    glRect(self.x, self.y, self.x + self.width, self.y + self.height)
+	--selection box
+    local boxSize = self.height * 1
+    local boxX = self.x + 5
+    local boxY = self.y + (self.height - boxSize) / 2
+    glColor(0.2, 0.2, 0.2, 1)
+    glRect(boxX, boxY, boxX + boxSize, boxY + boxSize)
+    if self.checked then
+      local inset = 2
+      glColor(0, 0.8, 0.1, 1)
+      glRect(boxX + inset, boxY + inset, boxX + boxSize - inset, boxY + boxSize - inset)
+    end
+    --text 
+    glColor(self.fontColor)
+    glText(self.text, boxSize + self.x + 10 , self.y + (self.height - self.fontSize) / 2 + 2, self.fontSize, "")
+  end
+  
+  function cb:GetSize()
+    local textWidth = glGetTextWidth(self.text) * self.fontSize
+    local textHeight = self.fontSize
+    self.height = textHeight + 4
+	self.width = textWidth + 10 + 20
+    return self.width + 2 * self.margin + self.height + 10, self.height + 2 * self.margin
+  end
+    
+  function cb:MousePress(mx, my, buttonNum)
+    if mx >= self.x and mx <= self.x + self.width and
+       my >= self.y and my <= self.y + self.height then
+      self.checked = not self.checked
+      self.onToggle(self.checked)
+      return true
+    end
+    return false
+  end
+
+  return cb
+end
+--------------------------------------------------------------------------------
+-- Selection Group
+
+local function MakeSelectionGroup(params)
+  local group = BaseElement(params)
+  group.options = params.options or {}
+  group.selected = params.selected or nil
+  group.onSelect = params.onSelect or function(index) end
+  group.fontSize = params.fontSize or 14
+  group.itemBgColor = params.itemBgColor or {0.2, 0.2, 0.2, 1}
+  group.fontColor = params.fontColor or {1, 1, 1, 1}
+  group.optionTooltips = params.optionTooltips or {}
+  
+  function group:GetSize()
+    local height = 0
+    local width = 0
+    for _, opt in ipairs(self.options) do
+      local w = glGetTextWidth(opt) * self.fontSize + 30
+      width = math.max(width, w)
+      height = height + self.fontSize + 10
+    end
+    self.width = width
+    self.height = height
+    return self.width + 2 * self.margin, self.height + 2 * self.margin
+  end
+
+function group:Hover(mx, my)
+	if not group.optionTooltips then
+		return false
+	end
+
+	local boxSize = self.fontSize + 4
+	local spacing = 6
+	local offsetY = self.y + self.height - boxSize
+
+	for i = 1, #self.options do
+		local boxX = self.x -2
+		local boxY = offsetY-2
+		local text = self.options[i]
+		local textWidth = glGetTextWidth(text) * self.fontSize  + 5+2
+		local totalWidth = boxSize + 5 + textWidth+2
+		local areaX2 = boxX + totalWidth
+		local areaY2 = boxY + boxSize
+
+		if mx >= boxX and mx <= areaX2 and
+		  my >= boxY and my <= areaY2 and
+		  #group.optionTooltips >= i then
+			currentToolTip = group.optionTooltips[i]
+			return true
+		end
+
+		offsetY = offsetY - (boxSize + spacing)
+	end
+	return false
+end
+
+  function group:Draw()
+    glColor(self.bgColor)
+    glRect(self.x, self.y, self.x + self.width, self.y + self.height)
+
+    local boxSize = self.fontSize + 4
+    local spacing = 6
+    local offsetY = self.y + self.height - boxSize
+
+    for i, option in ipairs(self.options) do
+      local isSelected = (i == self.selected)
+      local boxX = self.x
+      local boxY = offsetY
+      glColor(0.2, 0.2, 0.2, 1)
+      glRect(boxX, boxY, boxX + boxSize, boxY + boxSize)
+      if isSelected then
+        glColor(0, 0.8, 0.8, 1)
+        glRect(boxX + 2, boxY + 2, boxX + boxSize - 2, boxY + boxSize - 2)
+      end
+      glColor(self.fontColor)
+      glText(option, boxX + boxSize + 5, boxY + (boxSize - self.fontSize) / 2 + 2, self.fontSize, "")
+      offsetY = offsetY - (boxSize + spacing)
+    end
+  end
+
+  function group:MousePress(mx, my, buttonNum)
+    local boxSize = self.fontSize + 4
+    local spacing = 6
+    local offsetY = self.y + self.height - boxSize - spacing
+
+    for i = 1, #self.options do
+      local boxX = self.x + 5 - 2
+      local boxY = offsetY - 2
+      local text = self.options[i]
+      local textWidth = glGetTextWidth(text) * self.fontSize + 5 + 2
+      local totalWidth = boxSize + 5 + textWidth +2
+      local areaX2 = boxX + totalWidth
+      local areaY2 = boxY + boxSize
+
+      if mx >= boxX and mx <= areaX2 and
+         my >= boxY and my <= areaY2 then
+        self.selected = i
+        self.onSelect(i)
+        return true
+      end
+
+      offsetY = offsetY - (boxSize + spacing)
+    end
+    return false
+  end
+
+  return group
+end
+--------------------------------------------------------------------------------
+-- Window
+
+local function MakeWindow(params)
+  local window = BaseElement(params)
+  window.title = params.title or "Window"
+  window.dragging = false
+  window.fontSize = params.fontSize or 18
+  window.fontColor = params.fontColor or {1, 1, 1, 1}
+  window.bgColor = params.bgColor or {0.2, 0.2, 0.2, 0.9}
+  window.offsetX = 0
+  window.offsetY = 0
+  window.content = params.content
+
+  local titleBarHeight = 24
+  local closeButton = MakeButton{
+	bgColor = {0.6, 0.1, 0.0, 1.0}, height = titleBarHeight, text = "Close Widget", onClick = params.onClose
+  }
+  window.closeButton = closeButton
+
+  function window:Draw()
+  
+
+  
+    if self.closed then return end
+    glColor(self.bgColor)
+    glRect(self.x, self.y, self.x + self.width, self.y + self.height)
+
+    -- Draw title bar
+    glColor(unpack(self.bgColor))
+    glRect(self.x, self.y + self.height - titleBarHeight, self.x + self.width, self.y + self.height + 8)
+    glColor(unpack(self.fontColor))
+    glText(self.title, self.x + 5, self.y + self.height - titleBarHeight + 7, self.fontSize, "")
+
+    -- Position and draw close button
+    self.closeButton.x = self.x + self.width - 104
+    self.closeButton.y = self.y + self.height - titleBarHeight + 4
+    self.closeButton:Draw()
+
+    -- Position and draw content
+    if self.content then
+      self.content.x = self.x
+      self.content.y = self.y - titleBarHeight
+     -- self.content.width = self.width
+     -- self.content.height = self.height - titleBarHeight
+      self.content:Draw()
+    end
+	
+	if currentToolTip then
+	   local mx, my = Spring.GetMouseState()
+	   my = my + 6;
+	   
+	   local tooltipFontSize = 16
+	   local border = 2
+	   local width = glGetTextWidth(currentToolTip) * tooltipFontSize
+	   
+	   glColor(0.9, 0.5, 0.1, 0.9) --tiolltip bgColor
+       glRect(mx-border, my-border-4, mx + width + border, my + tooltipFontSize + border)
+	   
+	   glColor(1, 1, 1, 1) --tooltip text color
+       glText(currentToolTip, mx, my, tooltipFontSize, "")
+	end
+	
+	local cw, ch = self.content:GetSize()
+    self.width = cw
+	self.height = ch
+  end
+
+  function window:Hover(mx, my)
+    self.content:Hover(mx, my)
+  end
+
+  function window:MousePress(mx, my, button)
+	if self.closeButton:MousePress(mx, my, button) then
+		return true
+	elseif mx >= self.x and mx <= self.x + self.width and
+       my >= self.y + self.height - titleBarHeight and my <= self.y + self.height then
+      self.dragging = true
+      self.offsetX = mx - self.x
+      self.offsetY = my - self.y
+      return true
+    elseif self.content and self.content:MousePress(mx, my, button) then
+      return true
+	end
+    return false
+  end
+
+  function window:MouseMove(mx, my)
+    if self.dragging then
+      self.x = mx - self.offsetX
+      self.y = my - self.offsetY
+    end
+  end
+
+  function window:MouseRelease()
+    self.dragging = false
+  end
+
+  return window
+end
+
+
+--------------------------------------------------------------------------------
+-- UI Instance
+
+
+local myUI = nil
+
+
+function widget:Initialize()
+	if slots < 0 then
+	  Spring.Echo("[LayoutPlanner] Slot amount cannot be negative")
+	  DisableWidget()
+	  return
+	end
+	if slotsPerRow < 1 then
+	  Spring.Echo("[LayoutPlanner] Slots per row must be greater than 0")
+	  DisableWidget()
+	  return
+	end
+
+  local drawBox = Box({ orientation = "horizontal", spacing = 6, padding = 4})
+    
+  drawBox:Add(MakeCheckbox({
+    text = "Enable layout draw",
+	checked = drawingMode,
+	fontSize = 16,
+    onToggle = function(state) 
+			     drawingMode = not drawingMode
+				 Spring.Echo("[LayoutPlanner] Drawing: " .. (drawingMode and "ON" or "OFF"))
+			   end
+  }))
+  
+  drawBox:Add(MakeCheckbox({
+    text = "Snap",
+	checked = snapBuilding,
+	tooltip = "Snap the building to the grid according to the selected size",
+	fontSize = 16,
+    onToggle = function(state) 
+			     snapBuilding = not snapBuilding
+				 Spring.Echo("[LayoutPlanner] Snap: " .. (snapBuilding and "ON" or "OFF"))
+			   end
+  }))
+  --Building sizes
+	local buildingOptions = {}
+	local buildingTooltips = {}
+
+	for _, b in ipairs(buildingTypes) do
+	  table.insert(buildingOptions, b.name)
+	  table.insert(buildingTooltips, b.tooltip)
+	end
+  
+  
+  drawBox:Add(MakeSelectionGroup({
+    options = buildingOptions,
+	selected = currentSizeIndex,
+	fontSize = 16,
+	optionTooltips = buildingTooltips,
+    onSelect = function(i) Spring.Echo("[LayoutPlanner] Current Size: " .. i) currentSizeIndex = i	end
+  }))
+  
+  
+  local layoutButtons = Box({ orientation = "horizontal", spacing = 6, padding = 4})
+  layoutButtons:Add(MakeButton({
+    text = "Clear Layout",
+	bgColor = {0.8, 0.4, 0.1, 1.0},
+	fontSize = 20,
+    onClick = function() ClearLayout() end
+  }))
+  layoutButtons:Add(MakeButton({
+    text = "Render",
+	fontSize = 20,
+	bgColor = {0.0, 0.2, 0.8, 1.0},
+    onClick = function() CollectAndDraw() end
+  }))
+  
+  local content = Box({ 	orientation = "vertical", spacing = 6, padding = 4})
+  content:Add(drawBox)
+  content:Add(MakeCheckbox({
+    text = "Shift Layout",
+	checked = allowTranslationByKeys,
+	tooltip = "Whether the (green) layout can be shifted using the keyboard arrow keys",
+	fontSize = 16,
+    onToggle = function(state) 
+			     allowTranslationByKeys = not allowTranslationByKeys
+				 Spring.Echo("[LayoutPlanner] Shift: " .. (allowTranslationByKeys and "ON" or "OFF"))
+			   end
+  }))
+  content:Add(layoutButtons)
+  content:Add(MakeLabel({ bgColor = {0,0,0,0}, text = "Layouts Slots:", fontSize = 14 }))
+  
+
+	local rows = math.ceil(slots / slotsPerRow)
+
+	for h = 0, rows - 1 do
+	  local row = Box({ orientation = "horizontal", spacing = 6, padding = 4 })
+
+	  for i = 1, slotsPerRow do
+		local slotId = h * slotsPerRow + i
+		if slotId > slots then break end
+
+		local slot = Box({ orientation = "vertical", spacing = 6, padding = 4 })
+		slot:Add(MakeButton({
+		  text = "Save " .. slotId,
+		  bgColor =  {0.15, 0.6, 0.25, 1.0},
+		  onClick = function() SaveBuildings(slotId) end
+		}))
+		slot:Add(MakeButton({
+		  text = "Load " .. slotId,
+		  bgColor =  {0.3, 0.4, 1, 1.0},
+		  onClick = function() LoadBuildings(slotId)  end
+		}))
+		row:Add(slot)
+	  end
+
+	  content:Add(row)
+	end
+  
+  myUI = MakeWindow({
+    title = "Layout Planner",
+	fontSize = 22,
+	fontColor = {1, 0.6, 0.0, 1.0},
+    content = content,
+    onClose = DisableWidget,
+  })
+ local vsx, vsy = gl.GetViewSizes()
+ local w, h = myUI:GetSize()
+  myUI.x, myUI.y = 50, vsy/ 2 - h - 300
+end
+
+--------------------------------------------------------------------------------
+-- Drawing and Input
+
+function widget:DrawScreen()
+  if myUI then
+    myUI:Draw()
+  end
+    -- Placement hint text
   if layoutToPlace then
     local vsx, vsy = gl.GetViewSizes()
 	local textWidth = 19 * 18
     gl.Color(1, 1, 0.5, 1)
     gl.Text("Press [R] to rotate", (vsx - textWidth) / 2, vsy * 0.4, 18, "o")
 	gl.Text("Press [I] to invert", (vsx - textWidth) / 2, vsy * 0.4-20, 18, "o")
+  elseif allowTranslationByKeys then
+	local vsx, vsy = gl.GetViewSizes()
+	local textWidth = 19 * 18
+    gl.Color(1, 1, 0.5, 1)
+    gl.Text("Translate layout using ARROW keys", (vsx - textWidth) / 2, vsy * 0.4, 18, "o")
   end
   
-  -- Tooltip
-  if mx >= sizeButton.x and mx <= sizeButton.x + sizeButton.w and my >= sizeButton.y and my <= sizeButton.y + sizeButton.h then
-    gl.Color(0.0, 0.55, 0.0, 1)
-	gl.Rect(mx, my, mx + 450, my + 20)	
-	gl.Color(1, 1, 1, 1)
-	gl.Text(""..buildingTypes[currentSizeIndex].tooltip, mx+border, my+border, 20, "o")
-  end
 end
 
-
-
-
--- Extend dragging support
 function widget:MousePress(mx, my, button)
-  if button ~= 1 then return false end
-
-  for _, btn in ipairs(buttons) do
-    if mx >= btn.x and mx <= btn.x + btn.w and my >= btn.y and my <= btn.y + btn.h then
-      btn.action()
-      return true
-    end
+  if myUI and myUI:MousePress(mx, my, button) then
+	return true
   end
-
+  
   local _, pos = Spring.TraceScreenRay(mx, my, true)
   if not pos then return false end
 
   local bx, bz = WorldToBU(pos[1], pos[3])
   local size = buildingTypes[currentSizeIndex].size
-
+	
   if layoutToPlace then
+    ClearLayout()
     for _, b in ipairs(layoutToPlace) do
       local dx, dz = b.dx - ((loadedMaxX+smallest)/2), b.dz - ((loadedMaxZ+smallest)/2)
       local s = b.size
       local rx, rz = dx, dz
-	  local pbx, pbz = bx + rx, bz + rz
+	  local pbx, pbz = math.floor(bx + rx), math.floor(bz + rz)
       selectedBuildings[pbx .. "," .. pbz] = { size = s }
     end
     layoutToPlace = nil
@@ -562,7 +1026,11 @@ function widget:MousePress(mx, my, button)
 end
 
 function widget:MouseRelease(mx, my, button)
-  if button ~= 1 or not dragging or not dragStart then return end
+  if myUI and myUI:MouseRelease(mx, my, button) then
+	return true
+  end
+  
+  if not dragging or not dragStart then return end
 
   local _, pos = Spring.TraceScreenRay(mx, my, true)
   if not pos then return end
@@ -586,6 +1054,52 @@ function widget:MouseRelease(mx, my, button)
   dragging = false
   dragStart = nil
 end
+
+function widget:MouseMove(x, y, dx, dy, button)
+  if myUI then
+    return myUI:MouseMove(x, y)
+  end
+end
+
+
+function widget:KeyPress(key, mods, isRepeat)
+  if layoutToPlace then  
+	  if key == string.byte("r") then
+		layoutRotation = (layoutRotation + 90) % 360
+		layoutToPlace = ApplyRotationAndInversion(originalLayoutToPlace, layoutRotation, layoutInverted)
+		Spring.Echo("[LayoutPlanner] Rotation:", layoutRotation)
+		return true
+	  end
+	  if key == string.byte("i") then
+		layoutInverted = not layoutInverted
+		layoutToPlace = ApplyRotationAndInversion(originalLayoutToPlace, layoutRotation, layoutInverted)
+		Spring.Echo("[LayoutPlanner] Layout Inverted:", layoutInverted)
+		return true
+	  end
+  end
+
+  if allowTranslationByKeys and selectedBuildings then
+	local dx = 0
+	local dz = 0
+	if key == 273 then --up
+		dz = -1
+	end
+	if key == 274 then --down
+		dz = 1
+	end
+	if key == 276 then --left
+		dx = -1
+	end
+	if key == 275 then --right
+		dx = 1
+	end
+	if dx ~= 0 or dz ~= 0 then
+		TranslateLayout(dx, dz)
+	end
+  end
+  
+end
+
 
 function widget:DrawWorld()
   if drawingToGame then return end
@@ -624,7 +1138,7 @@ function widget:DrawWorld()
 		local s = b.size
         local rx, rz = dx, dz
 		
-        local pbx, pbz = bx + rx, bz + rz
+        local pbx, pbz = math.floor(bx + rx), math.floor(bz + rz)
         local wx, wz = BUToWorld(pbx, pbz)
         local wy = Spring.GetGroundHeight(wx, wz)
 
@@ -656,30 +1170,21 @@ function widget:DrawWorld()
   gl.DepthTest(false)
 end
 
-function widget:KeyPress(key, mods, isRepeat)
-  if key == string.byte("r") then
-    layoutRotation = (layoutRotation + 90) % 360
-    layoutToPlace = ApplyRotationAndInversion(originalLayoutToPlace, layoutRotation, layoutInverted)
-    Spring.Echo("[LayoutPlanner] Rotation:", layoutRotation)
-    return true
-  end
-  if key == string.byte("i") then
-    layoutInverted = not layoutInverted
-    layoutToPlace = ApplyRotationAndInversion(originalLayoutToPlace, layoutRotation, layoutInverted)
-    Spring.Echo("[LayoutPlanner] Layout Inverted:", layoutInverted)
-    return true
-  end
-end
-
 function widget:Update(dt)
-  if not renderinToGame then return end
+  if not renderinToGame then 
+  	if myUI then
+	  currentToolTip = nil
+	  local mx, my = Spring.GetMouseState()
+	  myUI:Hover(mx, my)
+	end
+    return 
+  end
   timer = timer + dt
   if timer > 0.1 then
     for i = 1, 10 do
       if #drawLineQueue == 0 then
         Spring.Echo("[LayoutPlanner] All lines rendered..")
 		renderinToGame = false
-        --widgetHandler:RemoveWidget(self)
         return
       end
 
