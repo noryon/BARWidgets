@@ -1006,7 +1006,7 @@ function widget:Initialize()
   }))
   
   content:Add(layoutButtons)
-  content:Add(MakeLabel({ bgColor = {0,0,0,0}, text = "Layouts Slots:", fontSize = 14 }))
+  content:Add(MakeLabel({ bgColor = {0,0,0,0}, text = "Layout Slots:", fontSize = 14 }))
   
 
 	local rows = math.ceil(slots / slotsPerRow)
@@ -1145,7 +1145,7 @@ end
 
 
 function widget:KeyPress(key, mods, isRepeat)
-Spring.Echo("ads "..tostring(key))
+
 
 --a 97
 --s 115
