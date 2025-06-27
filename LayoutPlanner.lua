@@ -17,6 +17,7 @@ local slots = 8                      --AMOUNT OF [SAVE/LOAD] SLOTS YOU WANT THE 
 local slotsPerRow = 4                --HOW MANY SLOTS WILL BE DISPLAYED PER ROW                     [1, ~)
 local allowTranslationByKeys = false --WHETHER LAYOUT CAN BE SHIFTED USING KEYBOARD KEYS            [true, false]
 local snapBuilding = true            --SNAP BUILDING TO GRID                                        [true, false]
+local drawChunkGrid = true           --DRAW A CHUNK ALIGNED GRID                                    [true, false]
 ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
@@ -402,6 +403,73 @@ local function LoadBuildings(slot)
   layoutInverted = false
   selectedBuildings = {}
 end
+
+local GRID_COLOR = {1,1, 1, 1}  -- Yellow with transparency
+local LINE_WIDTH = 2
+local HEIGHT_OFFSET = 5         -- raise lines above ground
+local RADIUS_CHUNKS = 8         -- how many chunks out from center
+
+local function DrawChunkGrid(cx, cz)
+  gl.PushAttrib(GL.ALL_ATTRIB_BITS)
+  gl.Color(GRID_COLOR)
+  gl.DepthTest(true)
+  gl.LineWidth(LINE_WIDTH)
+
+  gl.BeginEnd(GL.LINES, function()
+    local centerChunkX = math.floor(cx / CHUNK_SIZE)
+    local centerChunkZ = math.floor(cz / CHUNK_SIZE)
+
+    local minChunkX = centerChunkX - RADIUS_CHUNKS
+    local maxChunkX = centerChunkX + RADIUS_CHUNKS
+    local minChunkZ = centerChunkZ - RADIUS_CHUNKS
+    local maxChunkZ = centerChunkZ + RADIUS_CHUNKS
+
+    -- Vertical lines (x lines, varying z)
+    for chunkX = minChunkX, maxChunkX do
+      local x = chunkX * CHUNK_SIZE
+      for chunkZ = minChunkZ, maxChunkZ - 1 do
+        local z1 = chunkZ * CHUNK_SIZE
+        local z2 = z1 + CHUNK_SIZE
+        local midX = x + CHUNK_SIZE / 2
+        local midZ = z1 + CHUNK_SIZE / 2
+        local dx = midX - cx
+        local dz = midZ - cz
+        if dx * dx + dz * dz <= (RADIUS_CHUNKS * CHUNK_SIZE) ^ 2 then
+          local y1 = Spring.GetGroundHeight(x, z1) + HEIGHT_OFFSET
+          local y2 = Spring.GetGroundHeight(x, z2) + HEIGHT_OFFSET
+          gl.Vertex(x, y1, z1)
+          gl.Vertex(x, y2, z2)
+        end
+      end
+    end
+
+    -- Horizontal lines (z lines, varying x)
+    for chunkZ = minChunkZ, maxChunkZ do
+      local z = chunkZ * CHUNK_SIZE
+      for chunkX = minChunkX, maxChunkX - 1 do
+        local x1 = chunkX * CHUNK_SIZE
+        local x2 = x1 + CHUNK_SIZE
+        local midX = x1 + CHUNK_SIZE / 2
+        local midZ = z + CHUNK_SIZE / 2
+        local dx = midX - cx
+        local dz = midZ - cz
+        if dx * dx + dz * dz <= (RADIUS_CHUNKS * CHUNK_SIZE) ^ 2 then
+          local y1 = Spring.GetGroundHeight(x1, z) + HEIGHT_OFFSET
+          local y2 = Spring.GetGroundHeight(x2, z) + HEIGHT_OFFSET
+          gl.Vertex(x1, y1, z)
+          gl.Vertex(x2, y2, z)
+        end
+      end
+    end
+  end)
+
+  gl.LineWidth(1)
+  gl.Color(1, 1, 1, 1)
+  gl.DepthTest(true)
+  gl.PopAttrib()
+end
+
+
 
 local gl = gl
 local glColor = gl.Color
@@ -913,7 +981,10 @@ function widget:Initialize()
   
   local content = Box({ 	orientation = "vertical", spacing = 6, padding = 4})
   content:Add(drawBox)
-  content:Add(MakeCheckbox({
+  
+  local shiftAndGridBox =  Box({orientation = "horizontal", spacing = 6, padding = 4})
+  content:Add(shiftAndGridBox)
+  shiftAndGridBox:Add(MakeCheckbox({
     text = "Shift Layout",
 	checked = allowTranslationByKeys,
 	tooltip = "Whether the (green) layout can be shifted using the keyboard WASD keys",
@@ -923,8 +994,19 @@ function widget:Initialize()
 				 Spring.Echo("[LayoutPlanner] Shift: " .. (allowTranslationByKeys and "ON" or "OFF"))
 			   end
   }))
+  shiftAndGridBox:Add(MakeCheckbox({
+    text = "Draw Chunk Grid",
+	checked = drawChunkGrid,
+	tooltip = "Display a chunk aligned grid around mouse",
+	fontSize = 16,
+    onToggle = function(state) 
+			     drawChunkGrid = not drawChunkGrid
+				 Spring.Echo("[LayoutPlanner] Draw chunk grid: " .. (drawChunkGrid and "ON" or "OFF"))
+			   end
+  }))
+  
   content:Add(layoutButtons)
-  content:Add(MakeLabel({ bgColor = {0,0,0,0}, text = "Layout Slots:", fontSize = 14 }))
+  content:Add(MakeLabel({ bgColor = {0,0,0,0}, text = "Layouts Slots:", fontSize = 14 }))
   
 
 	local rows = math.ceil(slots / slotsPerRow)
@@ -1063,6 +1145,18 @@ end
 
 
 function widget:KeyPress(key, mods, isRepeat)
+Spring.Echo("ads "..tostring(key))
+
+--a 97
+--s 115
+--w 119
+--d 100
+
+--up 273
+--down 274
+--left 276
+--right 275
+
   if layoutToPlace then  
 	  if key == string.byte("r") then
 		layoutRotation = (layoutRotation + 90) % 360
@@ -1105,6 +1199,15 @@ function widget:DrawWorld()
   if drawingToGame then return end
   
   gl.DepthTest(true)
+
+  if drawChunkGrid then
+  
+    local mx, mz = Spring.GetMouseState()
+	local _, pos = Spring.TraceScreenRay(mx, mz, true)
+	if pos then
+		DrawChunkGrid(pos[1], pos[3])
+	end
+  end
 
   -- Draw layout
   for key, data in pairs(selectedBuildings) do
