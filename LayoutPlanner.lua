@@ -17,7 +17,7 @@ local slots = 8                      --AMOUNT OF [SAVE/LOAD] SLOTS YOU WANT THE 
 local slotsPerRow = 4                --HOW MANY SLOTS WILL BE DISPLAYED PER ROW                     [1, ~)
 local allowTranslationByKeys = false --WHETHER LAYOUT CAN BE SHIFTED USING KEYBOARD KEYS            [true, false]
 local snapBuilding = true            --SNAP BUILDING TO GRID                                        [true, false]
-local drawChunkGrid = true           --DRAW A CHUNK ALIGNED GRID                                    [true, false]
+local drawChunkGrid = false          --DRAW A CHUNK ALIGNED GRID                                    [true, false]
 ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------
