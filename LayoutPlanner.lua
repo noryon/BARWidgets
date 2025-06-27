@@ -924,7 +924,7 @@ function widget:Initialize()
 			   end
   }))
   content:Add(layoutButtons)
-  content:Add(MakeLabel({ bgColor = {0,0,0,0}, text = "Layouts Slots:", fontSize = 14 }))
+  content:Add(MakeLabel({ bgColor = {0,0,0,0}, text = "Layout Slots:", fontSize = 14 }))
   
 
 	local rows = math.ceil(slots / slotsPerRow)
@@ -1063,18 +1063,6 @@ end
 
 
 function widget:KeyPress(key, mods, isRepeat)
-Spring.Echo("ads "..tostring(key))
-
---a 97
---s 115
---w 119
---d 100
-
---up 273
---down 274
---left 276
---right 275
-
   if layoutToPlace then  
 	  if key == string.byte("r") then
 		layoutRotation = (layoutRotation + 90) % 360
