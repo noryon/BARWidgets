@@ -18,8 +18,10 @@ It's not a lightweight widget (by widget standards); if your computer struggles 
 
 - **Drawing: ON/OFF** – Enables drawing layout mode. While ON, you can paint the layout using the mouse, placing building-sized units.
 - **Size Options** – Select from multiple size options to draw the layout.
-- **Clear Layout** – Clears the entire active layout.
 - **Close Widget** – Deactivates the widget for the current game. Can be enabled it through the **F11 menu**. (Closing the widget after use is highly recommended, so it does not consume your computer resources during game)
+- **Clear Layout** – Clears the entire active layout.
+- **Shift Layout** - Allows the translation of the layout with the WASD keys. Might be useful specially to fit a loaded layout exactly.
+- **Draw chunk grid** - Renders a grid aligned with the game chunks. Might be useful for spacing and proper creation/positioning of a layout.
 - **Render to Game** – Renders the current layout into the game using marker lines (like the `'` key).
 - **Save/Load Buttons** – Slots available for saving and loading layouts.
 
@@ -80,9 +82,6 @@ It's not a lightweight widget (by widget standards); if your computer struggles 
 
 - **Disable the option "Auto erase map marks"** on your Settings -> Interface, so that the lines do not disappear during the game.
 - **Test solo:** Load your map alone to experiment and save your layouts; load and use them in actual matches afterward.
-- **Top-down camera helps:**  
-  This widget is designed for flat maps like **Fullmetal**. It still works on maps with elevation, but previews won’t follow terrain because they're rendered as **flat XZ-plane quads**. Expect some clipping with elevation peaks and valleys.
-
 
 --
 ### FUTURE?
