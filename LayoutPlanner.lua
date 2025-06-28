@@ -1145,8 +1145,6 @@ end
 
 
 function widget:KeyPress(key, mods, isRepeat)
-
-
 --a 97
 --s 115
 --w 119
@@ -1172,25 +1170,57 @@ function widget:KeyPress(key, mods, isRepeat)
 	  end
   end
 
-  if allowTranslationByKeys and selectedBuildings then
-	local dx = 0
-	local dz = 0
-	if key == 119 then --up
-		dz = -1
-	end
-	if key == 115 then --down
-		dz = 1
-	end
-	if key == 97 then --left
-		dx = -1
-	end
-	if key == 100 then --right
-		dx = 1
-	end
+if allowTranslationByKeys and selectedBuildings then
+--translation in world space
+	local dx, dz = 0, 0 
+
+	if key == 119 then dz = dz + 1 end -- W
+	if key == 115 then dz = dz - 1 end -- S
+	if key == 97  then dx = dx - 1 end -- A
+	if key == 100 then dx = dx + 1 end -- D
+
 	if dx ~= 0 or dz ~= 0 then
-		TranslateLayout(dx, dz)
+	-- d = input as input vector
+	-- get camera basis vector in XZ plane
+	-- transfrom "d" to camera space
+	
+		--Normalize translation direcction
+		local inputLen = math.sqrt(dx * dx + dz * dz)
+		dx = dx / inputLen
+		dz = dz / inputLen
+
+		-- Get camera direction and project to XZ plane
+		local dirX, _, dirZ = Spring.GetCameraDirection()
+		local camLen = math.sqrt(dirX * dirX + dirZ * dirZ)
+
+		-- Avoid divide by zero if camera is looking straight down
+		if camLen < 0.0001 then
+			Spring.Echo("Camera facing straight down — movement is ambiguous")
+			return
+		end
+
+		-- Forward direction (projected onto XZ plane)
+		local forwardX = dirX / camLen
+		local forwardZ = dirZ / camLen
+
+		-- Right vector (perpendicular on XZ plane) (x, y)->(-y, x) cheap 90degrees rotation
+		local rightX = -forwardZ
+		local rightZ = forwardX
+
+		-- Transform world space t input to world space
+		local worldDX = dx * rightX + dz * forwardX
+		local worldDZ = dx * rightZ + dz * forwardZ
+
+		-- Snap to nearest integer step
+		local tx = math.floor(worldDX + 0.5)
+		local tz = math.floor(worldDZ + 0.5)
+
+		if tx ~= 0 or tz ~= 0 then
+			TranslateLayout(tx, tz)
+		end
 	end
-  end
+end
+
   
 end
 
