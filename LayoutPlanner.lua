@@ -388,12 +388,6 @@ local function LoadBuildings(slot)
   file:close()
   if #layoutToPlace > 0 then
     Spring.Echo("[LayoutPlanner] Layout loaded. Click to place.")
-    for i, t in ipairs(buildingTypes) do
-      if t.size == smallest then
-        currentSizeIndex = i
-        break
-      end
-    end
   else
     layoutToPlace = nil
     Spring.Echo("[LayoutPlanner] File empty or invalid.")
@@ -1018,7 +1012,7 @@ function widget:Initialize()
 		local slotId = h * slotsPerRow + i
 		if slotId > slots then break end
 
-		local slot = Box({ orientation = "vertical", spacing = 6, padding = 4 })
+		local slot = Box({ orientation = "vertical", spacing = 6, padding = 4, bgColor = {0.0,0.0,0,1} })
 		slot:Add(MakeButton({
 		  text = "Save " .. slotId,
 		  bgColor =  {0.15, 0.6, 0.25, 1.0},
