@@ -1563,14 +1563,12 @@ local function GetBuildingList(dragStart, rx, rz, altMode)
 end
 
 function widget:MouseRelease(mx, my, button)
-  if button == 1 and dragStart then
+  if button == 1 then
     if myUI and myUI:MouseRelease(mx, my, button) then
       return true
     end
-    
-    if not dragging or not dragStart then
-      return
-    end
+
+    if not dragging or not dragStart then return end
 
     local _, pos = Spring.TraceScreenRay(mx, my, true)
     if not pos then
