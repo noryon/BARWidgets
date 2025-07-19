@@ -1600,14 +1600,14 @@ local function TraceRectangleBounds(startPos, endPos)
   -- Calculate actual footprint of the dragged shape
   local sx1 = bx1
   local sz1 = bz1
-  local sx2 = bx2 + size
-  local sz2 = bz2 + size
+  local sx2 = bx2
+  local sz2 = bz2
 
   -- Get the final bounding box including both the shape and the cursor
   local xMin = math.min(sx1, sx2, bx2)
-  local xMax = math.max(sx1, sx2, bx2)
+  local xMax = math.max(sx1, sx2, bx2) + size
   local zMin = math.min(sz1, sz2, bz2)
-  local zMax = math.max(sz1, sz2, bz2)
+  local zMax = math.max(sz1, sz2, bz2) + size
 
   -- Shrink bounds inward by 1 BU to avoid overlap with buildings
   local x1 = xMin + 1
