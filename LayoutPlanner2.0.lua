@@ -1580,78 +1580,80 @@ local function GetBuildingList(dragStart, rx, rz, altMode)
   return results
 end
 
-local BU = BU_SIZE -- shorthand
+local BU = BU_SIZE
 local TICK_LENGTH = 2 -- in BU
-local HALF_TICK =  math.floor(TICK_LENGTH / 2)
-local CHUNK_BU = math.floor(CHUNK_SIZE / BU_SIZE)
-local EDGE_MARGIN = CHUNK_BU  -- one chunk margin
+local HALF_TICK = math.floor(TICK_LENGTH / 2)
+local CHUNK_BU = math.floor(CHUNK_SIZE / BU)
+local EDGE_MARGIN = CHUNK_BU
 
 local function TraceRectangleBounds(startPos, endPos)
-  local BU = BU_SIZE
-  local CHUNK_BU = math.floor(CHUNK_SIZE / BU)
-  local TICK = 1  -- length of tick lines (in BU)
+  local TICK = 1
   local CORNER_TICK_LEN = 2
-
   local size = startPos.size
-  local x1 = math.min(startPos.bx, endPos.bx)
-  local x2 = math.max(startPos.bx, endPos.bx) + size - 1
-  local z1 = math.min(startPos.bz, endPos.bz)
-  local z2 = math.max(startPos.bz, endPos.bz) + size - 1
 
-  -- Shrink inward by 1 BU
-  x1 = x1 + 1
-  x2 = x2 - 1
-  z1 = z1 + 1
-  z2 = z2 - 1
+  local bx1, bz1 = startPos.bx, startPos.bz
+  local bx2, bz2 = endPos.bx, endPos.bz
+
+  -- Include the startPos footprint in both directions
+  local xMin = math.min(bx1, bx2)
+  local xMax = math.max(bx1 + size - 1, bx2 + (bx2 < bx1 and size - 1 or 0))
+
+  local zMin = math.min(bz1, bz2)
+  local zMax = math.max(bz1 + size - 1, bz2 + (bz2 < bz1 and size - 1 or 0))
+
+  -- Shrink inward by 1 BU to avoid overlapping the actual shape
+  local x1 = xMin + 1
+  local x2 = xMax - 1 + size
+  local z1 = zMin + 1
+  local z2 = zMax - 1 + size
 
   local lines = {}
-
   local function Add(x1, z1, x2, z2)
     table.insert(lines, {x1, z1, x2, z2})
   end
 
-  -- Corner ticks (2 lines per corner)
-  -- Top-left
-  Add(x1, z1, x1 + CORNER_TICK_LEN, z1)
+  -- Corner ticks
+  Add(x1, z1, x1 + CORNER_TICK_LEN, z1) -- TL
   Add(x1, z1, x1, z1 + CORNER_TICK_LEN)
-  -- Top-right
-  Add(x2, z1, x2 - CORNER_TICK_LEN, z1)
+  Add(x2, z1, x2 - CORNER_TICK_LEN, z1) -- TR
   Add(x2, z1, x2, z1 + CORNER_TICK_LEN)
-  -- Bottom-right
-  Add(x2, z2, x2 - CORNER_TICK_LEN, z2)
+  Add(x2, z2, x2 - CORNER_TICK_LEN, z2) -- BR
   Add(x2, z2, x2, z2 - CORNER_TICK_LEN)
-  -- Bottom-left
-  Add(x1, z2, x1 + CORNER_TICK_LEN, z2)
+  Add(x1, z2, x1 + CORNER_TICK_LEN, z2) -- BL
   Add(x1, z2, x1, z2 - CORNER_TICK_LEN)
 
   local widthBU = x2 - x1
   local heightBU = z2 - z1
 
-  -- Chunk ticks on horizontal edges (top/bottom)
-  if widthBU > 2 * CHUNK_BU then
-    local usableWidth = x2 - x1 - 2 * EDGE_MARGIN
+  -- Horizontal edge ticks (top/bottom)
+  if widthBU > 2 * EDGE_MARGIN then
+    local usableWidth = widthBU - 2 * EDGE_MARGIN
     local tickCount = math.floor(usableWidth / CHUNK_BU)
 
     for i = 1, tickCount do
-      local x = x1 + EDGE_MARGIN + math.floor(i * usableWidth / (tickCount + 1))
-      Add(x - TICK, z1, x + TICK, z1)  -- top edge
-      Add(x - TICK, z2, x + TICK, z2)  -- bottom edge
+      local offset = math.floor(i * usableWidth / (tickCount + 1))
+      local x = x1 + EDGE_MARGIN + offset
+      Add(x - TICK, z1, x + TICK, z1)
+      Add(x - TICK, z2, x + TICK, z2)
     end
   end
 
-  -- Chunk ticks on vertical edges (left/right)
-  if heightBU > 2 * CHUNK_BU then
-    local usableHeight = z2 - z1 - 2 * EDGE_MARGIN
+  -- Vertical edge ticks (left/right)
+  if heightBU > 2 * EDGE_MARGIN then
+    local usableHeight = heightBU - 2 * EDGE_MARGIN
     local tickCount = math.floor(usableHeight / CHUNK_BU)
 
     for i = 1, tickCount do
-      local z = z1 + EDGE_MARGIN + math.floor(i * usableHeight / (tickCount + 1))
-      Add(x1, z - TICK, x1, z + TICK)  -- left edge
-      Add(x2, z - TICK, x2, z + TICK)  -- right edge
+      local offset = math.floor(i * usableHeight / (tickCount + 1))
+      local z = z1 + EDGE_MARGIN + offset
+      Add(x1, z - TICK, x1, z + TICK)
+      Add(x2, z - TICK, x2, z + TICK)
     end
   end
+
   return lines
 end
+
 
 function widget:MouseRelease(mx, my, button)
   if button == 1 then
