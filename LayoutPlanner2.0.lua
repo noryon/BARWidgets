@@ -754,6 +754,9 @@ local function DrawChunkGrid(cx, cz)
   gl.PopAttrib()
 end
 
+---------UI WINDOW
+local myUI = nil
+
 --------------------------------------------------------------------------------
 -- PREFERENCES TO FILE
 local function SaveUserPreferences()
@@ -850,7 +853,6 @@ end
 --------------------------------------------------------------------------------
 -- UI Instance
 
-local myUI = nil
 
 --------------------------------------------------------------------------------
 -- Box (Container)
