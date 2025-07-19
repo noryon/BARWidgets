@@ -1587,12 +1587,9 @@ local CHUNK_BU = math.floor(CHUNK_SIZE / BU)
 local EDGE_MARGIN = CHUNK_BU
 local function TraceRectangleBounds(startPos, endPos)
   local BU = BU_SIZE
-  local TICK = 1
-  local CORNER_TICK_LEN = 2
-
   local size = startPos.size or 1
-  local TICK_SPACING = size * 2 -- spacing between ticks (in BUs)
-  local EDGE_MARGIN = size  -- also based on size
+  local TICK = size > 4 and 1 or 0.5
+  local CORNER_TICK_LEN = TICK * 2
 
   local bx1, bz1 = startPos.bx, startPos.bz
   local bx2, bz2 = endPos.bx, endPos.bz
@@ -1609,7 +1606,7 @@ local function TraceRectangleBounds(startPos, endPos)
   local zMin = math.min(sz1, sz2, bz2)
   local zMax = math.max(sz1, sz2, bz2) + size
 
-  -- Shrink bounds inward by 1 BU to avoid overlap with buildings
+  -- Shrink bounds inward by 1 BU
   local x1 = xMin + 1
   local x2 = xMax - 1
   local z1 = zMin + 1
@@ -1630,34 +1627,25 @@ local function TraceRectangleBounds(startPos, endPos)
   Add(x1, z2, x1 + CORNER_TICK_LEN, z2)
   Add(x1, z2, x1, z2 - CORNER_TICK_LEN)
 
-  -- Horizontal ticks (top and bottom)
-  local widthBU = x2 - x1
-  if widthBU > 2 * EDGE_MARGIN then
-    local usableWidth = widthBU - 2 * EDGE_MARGIN
-    local tickCount = math.floor(usableWidth / TICK_SPACING)
-    for i = 1, tickCount do
-      local offset = math.floor(i * usableWidth / (tickCount + 1))
-      local x = x1 + EDGE_MARGIN + offset
-      Add(x - TICK, z1, x + TICK, z1)
-      Add(x - TICK, z2, x + TICK, z2)
-    end
+  -- Horizontal ticks (top and bottom) → left-right ticks
+  for x = x1 + size - 1, x2 - 1, size do
+    Add(x - TICK, z1, x + TICK, z1) -- top edge
+    Add(x - TICK, z2, x + TICK, z2) -- bottom edge
   end
 
-  -- Vertical ticks (left and right)
-  local heightBU = z2 - z1
-  if heightBU > 2 * EDGE_MARGIN then
-    local usableHeight = heightBU - 2 * EDGE_MARGIN
-    local tickCount = math.floor(usableHeight / TICK_SPACING)
-    for i = 1, tickCount do
-      local offset = math.floor(i * usableHeight / (tickCount + 1))
-      local z = z1 + EDGE_MARGIN + offset
-      Add(x1, z - TICK, x1, z + TICK)
-      Add(x2, z - TICK, x2, z + TICK)
-    end
+  -- Vertical ticks (left and right) → up-down ticks
+  for z = z1 + size - 1, z2 - 1, size do
+    Add(x1, z - TICK, x1, z + TICK) -- left edge
+    Add(x2, z - TICK, x2, z + TICK) -- right edge
   end
 
   return lines
 end
+
+
+
+
+
 
 
 function widget:MouseRelease(mx, my, button)
