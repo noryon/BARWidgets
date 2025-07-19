@@ -48,6 +48,9 @@ local buildingTypes = {
   { name = "Chunk",  size = 12,tooltip = "e.g.: EFUS",                                            color = {0.70, 0.65, 0.85, 0.6} }, -- soft purple
 }
 
+--------------------------------------------------------------------------------
+-- UI Instance
+local myUI = nil
 
 
 -- Control Variables
@@ -754,9 +757,6 @@ local function DrawChunkGrid(cx, cz)
   gl.PopAttrib()
 end
 
----------UI WINDOW
-local myUI = nil
-
 --------------------------------------------------------------------------------
 -- PREFERENCES TO FILE
 local function SaveUserPreferences()
@@ -850,9 +850,6 @@ local function BaseElement(params)
 	end
   }
 end
---------------------------------------------------------------------------------
--- UI Instance
-
 
 --------------------------------------------------------------------------------
 -- Box (Container)
