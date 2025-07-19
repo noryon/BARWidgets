@@ -52,7 +52,10 @@ local buildingTypes = {
 
 -- Control Variables
 local drawingToGame = false;
+
+--Command modifiers
 local altMode = false
+local ctrlMode = false
 
 local currentLayout = {
   buildings = {
@@ -277,8 +280,11 @@ local function ApplyRotationAndInversion(layout, rotation, invert)
       local newX = math.floor(cx + rx - size / 2 + 0.5)
       local newZ = math.floor(cz + rz - size / 2 + 0.5)
 
+
+
       if invert then
-        if rotation == 0 or rotation == 180 then
+        local camAngle = GetCameraSnappedAngle()
+        if camAngle == 90 or camAngle == 270 then
           newX = 2 * cx - newX - size
         else
           newZ = 2 * cz - newZ - size
@@ -315,7 +321,8 @@ local function ApplyRotationAndInversion(layout, rotation, invert)
       local nz = math.floor(cz + rz + 0.5)
 
       if invert then
-        if rotation == 0 or rotation == 180 then
+        local camAngle = GetCameraSnappedAngle()
+        if camAngle == 90 or camAngle == 270 then
           nx = 2 * cx - nx
         else
           nz = 2 * cz - nz
@@ -690,6 +697,9 @@ local function DrawChunkGrid(cx, cz)
     local minChunkZ = centerChunkZ - RADIUS_CHUNKS
     local maxChunkZ = centerChunkZ + RADIUS_CHUNKS
 
+    -- At the top (optional for performance)
+    local maxDistSq = (RADIUS_CHUNKS * CHUNK_SIZE) ^ 2
+
     -- Vertical lines (x lines, varying z)
     for chunkX = minChunkX, maxChunkX do
       local x = chunkX * CHUNK_SIZE
@@ -700,9 +710,13 @@ local function DrawChunkGrid(cx, cz)
         local midZ = z1 + CHUNK_SIZE / 2
         local dx = midX - cx
         local dz = midZ - cz
-        if dx * dx + dz * dz <= (RADIUS_CHUNKS * CHUNK_SIZE) ^ 2 then
+        local distSq = dx * dx + dz * dz
+        if distSq <= maxDistSq then
+          local alpha = 1.0 - (distSq / maxDistSq)  -- 1 at center, 0 at edge
+          alpha = alpha * GRID_COLOR[4]  -- scale by original alpha
           local y1 = Spring.GetGroundHeight(x, z1) + HEIGHT_OFFSET
           local y2 = Spring.GetGroundHeight(x, z2) + HEIGHT_OFFSET
+          gl.Color(GRID_COLOR[1], GRID_COLOR[2], GRID_COLOR[3], alpha)
           gl.Vertex(x, y1, z1)
           gl.Vertex(x, y2, z2)
         end
@@ -719,14 +733,19 @@ local function DrawChunkGrid(cx, cz)
         local midZ = z + CHUNK_SIZE / 2
         local dx = midX - cx
         local dz = midZ - cz
-        if dx * dx + dz * dz <= (RADIUS_CHUNKS * CHUNK_SIZE) ^ 2 then
+        local distSq = dx * dx + dz * dz
+        if distSq <= maxDistSq then
+          local alpha = 1.0 - (distSq / maxDistSq)
+          alpha = alpha * GRID_COLOR[4]
           local y1 = Spring.GetGroundHeight(x1, z) + HEIGHT_OFFSET
           local y2 = Spring.GetGroundHeight(x2, z) + HEIGHT_OFFSET
+          gl.Color(GRID_COLOR[1], GRID_COLOR[2], GRID_COLOR[3], alpha)
           gl.Vertex(x1, y1, z)
           gl.Vertex(x2, y2, z)
         end
       end
     end
+
   end)
 
   gl.LineWidth(1)
@@ -734,49 +753,6 @@ local function DrawChunkGrid(cx, cz)
   gl.DepthTest(true)
   gl.PopAttrib()
 end
-
-
-
-local gl = gl
-local glColor = gl.Color
-local glRect = gl.Rect
-local glText = gl.Text
-local glGetTextWidth = gl.GetTextWidth
-local currentToolTip = nil
---------------------------------------------------------------------------------
--- Base Component
-
-local function BaseElement(params)
-  return {
-    x = params.x or 0,
-    y = params.y or 0,
-    width = params.width or 100,
-    height = params.height or 30,
-    bgColor = params.bgColor or {0.1, 0.1, 0.1, 0.8},
-    margin = params.margin or 2,
-    tooltip = params.tooltip,
-    Draw = function(self) end,
-    MousePress = function(self, mx, my, button) return false end,
-    KeyPress = function(self, char) end,
-    GetSize = function(self)
-      return self.width + 2 * self.margin, self.height + 2 * self.margin
-    end,
-	Hover = function(self, mx, my)
-		if self.tooltip ~= nil and self.tooltip ~= "" and
-		mx >= self.x and mx <= self.x + self.width and
-		my >= self.y and my <= self.y + self.height then
-			currentToolTip = self.tooltip
-			return true
-		else
-		    return false
-		end
-	end
-  }
-end
---------------------------------------------------------------------------------
--- UI Instance
-
-local myUI = nil
 
 --------------------------------------------------------------------------------
 -- PREFERENCES TO FILE
@@ -832,6 +808,49 @@ local function DisableWidget()
 	Spring.Echo("[LayoutPlanner] Closed")
 	widgetHandler:RemoveWidget(self)
 end
+
+
+
+local gl = gl
+local glColor = gl.Color
+local glRect = gl.Rect
+local glText = gl.Text
+local glGetTextWidth = gl.GetTextWidth
+local currentToolTip = nil
+--------------------------------------------------------------------------------
+-- Base Component
+
+local function BaseElement(params)
+  return {
+    x = params.x or 0,
+    y = params.y or 0,
+    width = params.width or 100,
+    height = params.height or 30,
+    bgColor = params.bgColor or {0.1, 0.1, 0.1, 0.8},
+    margin = params.margin or 2,
+    tooltip = params.tooltip,
+    Draw = function(self) end,
+    MousePress = function(self, mx, my, button) return false end,
+    KeyPress = function(self, char) end,
+    GetSize = function(self)
+      return self.width + 2 * self.margin, self.height + 2 * self.margin
+    end,
+	Hover = function(self, mx, my)
+		if self.tooltip ~= nil and self.tooltip ~= "" and
+		mx >= self.x and mx <= self.x + self.width and
+		my >= self.y and my <= self.y + self.height then
+			currentToolTip = self.tooltip
+			return true
+		else
+		    return false
+		end
+	end
+  }
+end
+--------------------------------------------------------------------------------
+-- UI Instance
+
+local myUI = nil
 
 --------------------------------------------------------------------------------
 -- Box (Container)
@@ -1101,18 +1120,20 @@ end
   end
 
   function group:MousePress(mx, my, buttonNum)
+    
     local boxSize = self.fontSize + 4
     local spacing = 6
-    local offsetY = self.y + self.height - boxSize - spacing
+    local offsetY = self.y + self.height - boxSize
 
     for i = 1, #self.options do
-      local boxX = self.x + 5 - 2
-      local boxY = offsetY - 2
+      local boxX = self.x -2
+      local boxY = offsetY-2
       local text = self.options[i]
-      local textWidth = glGetTextWidth(text) * self.fontSize + 5 + 2
-      local totalWidth = boxSize + 5 + textWidth +2
+      local textWidth = glGetTextWidth(text) * self.fontSize  + 5+2
+      local totalWidth = boxSize + 5 + textWidth+2
       local areaX2 = boxX + totalWidth
       local areaY2 = boxY + boxSize
+
 
       if mx >= boxX and mx <= areaX2 and
          my >= boxY and my <= areaY2 then
@@ -1149,9 +1170,6 @@ local function MakeWindow(params)
   window.closeButton = closeButton
 
   function window:Draw()
-  
-
-  
     if self.closed then return end
     glColor(self.bgColor)
     glRect(self.x, self.y, self.x + self.width, self.y + self.height)
@@ -1562,6 +1580,79 @@ local function GetBuildingList(dragStart, rx, rz, altMode)
   return results
 end
 
+local BU = BU_SIZE -- shorthand
+local TICK_LENGTH = 2 -- in BU
+local HALF_TICK =  math.floor(TICK_LENGTH / 2)
+local CHUNK_BU = math.floor(CHUNK_SIZE / BU_SIZE)
+local EDGE_MARGIN = CHUNK_BU  -- one chunk margin
+
+local function TraceRectangleBounds(startPos, endPos)
+  local BU = BU_SIZE
+  local CHUNK_BU = math.floor(CHUNK_SIZE / BU)
+  local TICK = 1  -- length of tick lines (in BU)
+  local CORNER_TICK_LEN = 2
+
+  local size = startPos.size
+  local x1 = math.min(startPos.bx, endPos.bx)
+  local x2 = math.max(startPos.bx, endPos.bx) + size - 1
+  local z1 = math.min(startPos.bz, endPos.bz)
+  local z2 = math.max(startPos.bz, endPos.bz) + size - 1
+
+  -- Shrink inward by 1 BU
+  x1 = x1 + 1
+  x2 = x2 - 1
+  z1 = z1 + 1
+  z2 = z2 - 1
+
+  local lines = {}
+
+  local function Add(x1, z1, x2, z2)
+    table.insert(lines, {x1, z1, x2, z2})
+  end
+
+  -- Corner ticks (2 lines per corner)
+  -- Top-left
+  Add(x1, z1, x1 + CORNER_TICK_LEN, z1)
+  Add(x1, z1, x1, z1 + CORNER_TICK_LEN)
+  -- Top-right
+  Add(x2, z1, x2 - CORNER_TICK_LEN, z1)
+  Add(x2, z1, x2, z1 + CORNER_TICK_LEN)
+  -- Bottom-right
+  Add(x2, z2, x2 - CORNER_TICK_LEN, z2)
+  Add(x2, z2, x2, z2 - CORNER_TICK_LEN)
+  -- Bottom-left
+  Add(x1, z2, x1 + CORNER_TICK_LEN, z2)
+  Add(x1, z2, x1, z2 - CORNER_TICK_LEN)
+
+  local widthBU = x2 - x1
+  local heightBU = z2 - z1
+
+  -- Chunk ticks on horizontal edges (top/bottom)
+  if widthBU > 2 * CHUNK_BU then
+    local usableWidth = x2 - x1 - 2 * EDGE_MARGIN
+    local tickCount = math.floor(usableWidth / CHUNK_BU)
+
+    for i = 1, tickCount do
+      local x = x1 + EDGE_MARGIN + math.floor(i * usableWidth / (tickCount + 1))
+      Add(x - TICK, z1, x + TICK, z1)  -- top edge
+      Add(x - TICK, z2, x + TICK, z2)  -- bottom edge
+    end
+  end
+
+  -- Chunk ticks on vertical edges (left/right)
+  if heightBU > 2 * CHUNK_BU then
+    local usableHeight = z2 - z1 - 2 * EDGE_MARGIN
+    local tickCount = math.floor(usableHeight / CHUNK_BU)
+
+    for i = 1, tickCount do
+      local z = z1 + EDGE_MARGIN + math.floor(i * usableHeight / (tickCount + 1))
+      Add(x1, z - TICK, x1, z + TICK)  -- left edge
+      Add(x2, z - TICK, x2, z + TICK)  -- right edge
+    end
+  end
+  return lines
+end
+
 function widget:MouseRelease(mx, my, button)
   if button == 1 then
     if myUI and myUI:MouseRelease(mx, my, button) then
@@ -1584,10 +1675,20 @@ function widget:MouseRelease(mx, my, button)
         bz = math.floor(bz / size) * size
       end
 
-      local list = GetBuildingList(dragStart, bx, bz, altMode)
+      if ctrlMode and altMode then
+        --RENDER STUFF WITH TRACED BOUNDS
+        local bounds = TraceRectangleBounds(dragStart, {bx = bx, bz = bz})
+        for _, line in ipairs(bounds) do
+          AddLine(unpack(line))
+        end
 
-      for _, v in ipairs(list) do
-        ToggleBuilding(v.x, v.z, size)
+        Spring.Echo("Traced Bounds")
+      else
+        --RENDER STUFF WITH BUILDINGS
+        local list = GetBuildingList(dragStart, bx, bz, altMode)
+        for _, v in ipairs(list) do
+          ToggleBuilding(v.x, v.z, size)
+        end
       end
     end
     dragging = false
@@ -1683,9 +1784,14 @@ function widget:KeyPress(key, mods, isRepeat)
   --down 274
   --left 276
   --right 275
-  if key == 308 then
+  if key == 308 then -- ALT
     altMode = true
-    return true
+    return false
+  end
+  
+  if key == 306 then
+    ctrlMode = true
+    return false
   end
 
   --Spring.Echo("Key ".. tostring(key))
@@ -1726,9 +1832,13 @@ function widget:KeyPress(key, mods, isRepeat)
 end
 
 function widget:KeyRelease(key, mods)
-  if key == 308 then
+  if key == 308 then --ALT
     altMode = false
-    return true
+    return false --hmm, true seems to block the ALT key reach the game, so we can't rotate camera lol
+  end
+    if key == 306 then --CTRL
+    ctrlMode = false
+    return false
   end
 end
 
