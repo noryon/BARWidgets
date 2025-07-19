@@ -1585,27 +1585,35 @@ local TICK_LENGTH = 2 -- in BU
 local HALF_TICK = math.floor(TICK_LENGTH / 2)
 local CHUNK_BU = math.floor(CHUNK_SIZE / BU)
 local EDGE_MARGIN = CHUNK_BU
-
 local function TraceRectangleBounds(startPos, endPos)
+  local BU = BU_SIZE
   local TICK = 1
   local CORNER_TICK_LEN = 2
-  local size = startPos.size
+
+  local size = startPos.size or 1
+  local TICK_SPACING = size * 2 -- spacing between ticks (in BUs)
+  local EDGE_MARGIN = size  -- also based on size
 
   local bx1, bz1 = startPos.bx, startPos.bz
   local bx2, bz2 = endPos.bx, endPos.bz
 
-  -- Include the startPos footprint in both directions
-  local xMin = math.min(bx1, bx2)
-  local xMax = math.max(bx1 + size - 1, bx2 + (bx2 < bx1 and size - 1 or 0))
+  -- Calculate actual footprint of the dragged shape
+  local sx1 = bx1
+  local sz1 = bz1
+  local sx2 = bx2 + size
+  local sz2 = bz2 + size
 
-  local zMin = math.min(bz1, bz2)
-  local zMax = math.max(bz1 + size - 1, bz2 + (bz2 < bz1 and size - 1 or 0))
+  -- Get the final bounding box including both the shape and the cursor
+  local xMin = math.min(sx1, sx2, bx2)
+  local xMax = math.max(sx1, sx2, bx2)
+  local zMin = math.min(sz1, sz2, bz2)
+  local zMax = math.max(sz1, sz2, bz2)
 
-  -- Shrink inward by 1 BU to avoid overlapping the actual shape
+  -- Shrink bounds inward by 1 BU to avoid overlap with buildings
   local x1 = xMin + 1
-  local x2 = xMax - 1 + size
+  local x2 = xMax - 1
   local z1 = zMin + 1
-  local z2 = zMax - 1 + size
+  local z2 = zMax - 1
 
   local lines = {}
   local function Add(x1, z1, x2, z2)
@@ -1613,23 +1621,20 @@ local function TraceRectangleBounds(startPos, endPos)
   end
 
   -- Corner ticks
-  Add(x1, z1, x1 + CORNER_TICK_LEN, z1) -- TL
+  Add(x1, z1, x1 + CORNER_TICK_LEN, z1)
   Add(x1, z1, x1, z1 + CORNER_TICK_LEN)
-  Add(x2, z1, x2 - CORNER_TICK_LEN, z1) -- TR
+  Add(x2, z1, x2 - CORNER_TICK_LEN, z1)
   Add(x2, z1, x2, z1 + CORNER_TICK_LEN)
-  Add(x2, z2, x2 - CORNER_TICK_LEN, z2) -- BR
+  Add(x2, z2, x2 - CORNER_TICK_LEN, z2)
   Add(x2, z2, x2, z2 - CORNER_TICK_LEN)
-  Add(x1, z2, x1 + CORNER_TICK_LEN, z2) -- BL
+  Add(x1, z2, x1 + CORNER_TICK_LEN, z2)
   Add(x1, z2, x1, z2 - CORNER_TICK_LEN)
 
+  -- Horizontal ticks (top and bottom)
   local widthBU = x2 - x1
-  local heightBU = z2 - z1
-
-  -- Horizontal edge ticks (top/bottom)
   if widthBU > 2 * EDGE_MARGIN then
     local usableWidth = widthBU - 2 * EDGE_MARGIN
-    local tickCount = math.floor(usableWidth / CHUNK_BU)
-
+    local tickCount = math.floor(usableWidth / TICK_SPACING)
     for i = 1, tickCount do
       local offset = math.floor(i * usableWidth / (tickCount + 1))
       local x = x1 + EDGE_MARGIN + offset
@@ -1638,11 +1643,11 @@ local function TraceRectangleBounds(startPos, endPos)
     end
   end
 
-  -- Vertical edge ticks (left/right)
+  -- Vertical ticks (left and right)
+  local heightBU = z2 - z1
   if heightBU > 2 * EDGE_MARGIN then
     local usableHeight = heightBU - 2 * EDGE_MARGIN
-    local tickCount = math.floor(usableHeight / CHUNK_BU)
-
+    local tickCount = math.floor(usableHeight / TICK_SPACING)
     for i = 1, tickCount do
       local offset = math.floor(i * usableHeight / (tickCount + 1))
       local z = z1 + EDGE_MARGIN + offset
