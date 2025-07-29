@@ -44,7 +44,7 @@ To draw a layout check the "Enable Layout Draw" option. It will enable drawing l
 ##### Draw the layout! Save it in one of the four slots.
 
 <p align="center">
-  <img src="images/drawing_layout.gif" alt="Drawing">
+  <img src="images/drawing _layout.gif" alt="Drawing">
 </p>
 
 
