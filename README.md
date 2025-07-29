@@ -35,7 +35,7 @@ There are help texts and option inside the widget itself.
 ##### Draw the layout! Save it in one of the four slots.
 
 <p align="center">
-  [Drawing a Layout]()(https://github.com/noryon/BARLayoutPlanner/blob/main/images/drawing_layout.mp4)
+  [![Drawing a Layout](https://github.com/noryon/BARLayoutPlanner/blob/main/images/gui.png)](https://github.com/noryon/BARLayoutPlanner/blob/main/images/drawing_layout.mp4)
 </p>
 
 
