@@ -19,6 +19,22 @@ To draw a layout check the "Enable Layout Draw" option. It will enable drawing l
 
 There are help texts and option inside the widget itself.
 
+To draw your layout, first click on "Enable Layout Draw". You will see a square at your mouse position; it is a preview of where you will draw to the layout. The small dot is where a line will begin.
+Use [left mouse button] to place buildings, use [ALT] or [ALT + CTRL] keys to change the way it is placed.
+Use [right mouse button] to render arbitrary lines to your layout; hold the [ALT] key so you can remove lines.
+Select one size for the building (Small, Square, Big, Large or Chunk) to place. Adjacent buildings of the same size will be rendered together (i.e.: a single contour for the shape defined by buildings of the same type).
+You can use CTRL+Z/CTRL+A to undo/redo your actions.
+Once the layout is created, save it on a slot using a Save button below, you can load it anytime later pressing the Load button with same slot number.
+A loaded layout can be rotated with the [R] key and inverted with the [I] key before being placed.
+Press "Render" to draw the active layout to the game.
+You can click and drag the widget window by the title bar.
+
+
+IF YOUR ARE NEW:
+    Draw your layout alligned to chunks. The size of a chunk is a multiple of almost every building in the game! You can optimize your layout space based on this.
+    Use the "Snap" option! Its the best way to render regular layouts, which will be alligned to the grid.
+
+Check and use the widget discord page if you have any trouble with this widget.
 
 ##### Draw the layout! Save it in one of the four slots.
 
