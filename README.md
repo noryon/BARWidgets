@@ -5,6 +5,7 @@
 </p>
 
 This widget presents an interface that allows players to **draw, save, load and markup layouts** directly in-game.
+
 <p align="center">
   <img src="images/fullmap.jpg" width="1280" alt="GUI">
   <i>A rather complex layout (in yellow) has been loaded multiple times, rotated, inverted and placed in different places.</i>
@@ -35,6 +36,7 @@ To draw a layout check the "Enable Layout Draw" option. It will enable drawing l
 ##### Draw layout using building blocks of different sizes:
 
 <p align="center">
+  
   <img src="images/buildingsizes.png" width="240" alt="Building Sizes">
 </p>
 
@@ -42,7 +44,7 @@ To draw a layout check the "Enable Layout Draw" option. It will enable drawing l
 ##### Draw the layout! Save it in one of the four slots.
 
 <p align="center">
-  <img src="images/drawing_layout.gif" alt="Draw">
+  ![draw](./images/drawing_layout.gif)
 </p>
 
 
