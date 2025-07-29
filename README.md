@@ -1,13 +1,13 @@
 # BARLayoutPlanner
 
 <p align="center">
-  <img src="images/gui.png" width="600" alt="GUI">
+  <img src="images/gui.png" width="400" alt="GUI">
 </p>
 
 This widget presents an interface that allows players to **draw, save, load and markup layouts** directly in-game.
 
 <p align="center">
-  <img src="images/fullmap.jpg" width="1280" alt="GUI">
+  <img src="images/fullmap.jpg" width="600" alt="GUI">
   <i>A rather complex layout (in yellow) has been loaded multiple times, rotated, inverted and placed in different places.</i>
 </p>
 
@@ -44,21 +44,21 @@ To draw a layout check the "Enable Layout Draw" option. It will enable drawing l
 ##### Draw the layout! Save it in one of the four slots.
 
 <p align="center">
-  <img src="images/drawing _layout.gif" alt="Drawing">
+  <img src="images/drawing _layout.gif" width="320" alt="Drawing">
 </p>
 
 
 ##### Load the layout to place it elsewhere. You can rotate and invert the layout orientation!.
 
 <p align="center">
-  <img src="images/loading_layout.gif" alt="Load">
+  <img src="images/loading_layout.gif" width="320" alt="Load">
 </p>
 
 ##### Drawing Lines and erasing indidual lines
 
 <p align="center">
-  <img src="images/rendering_lines.gif" alt="Render">
-  <img src="images/erasing_lines.gif" alt="Render">
+  <img src="images/rendering_lines.gif" width="320" alt="Render">
+  <img src="images/erasing_lines.gif" width="320" alt="Render">
 </p>
 
 --
