@@ -27,7 +27,7 @@ Use [right mouse button] to render arbitrary lines to your layout; hold the [ALT
 
 Select one size for the building (Small, Square, Big, Large or Chunk) to place. Adjacent buildings of the same size will be rendered together (i.e.: a single contour for the shape defined by buildings of the same type).
 
-You can use CTRL+Z/CTRL+A to undo/redo your actions.
+You can use CTRL+Z/CTRL+A to undo/redo your actions over the active layout.
 
 Once the layout is created, save it on a slot using a Save button below, you can load it anytime later pressing the Load button with same slot number.
 
