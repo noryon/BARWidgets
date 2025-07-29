@@ -45,12 +45,12 @@ IF YOUR ARE NEW:
 
 Check and use the widget discord page if you have any trouble with this widget.
 
-##### Draw the layout! Save it in one of the four slots.
+#### Draw the layout! Save it in one of the save slots.
 
 
   ![Drawing](https://github.com/noryon/BARLayoutPlanner/blob/main/images/drawing_layout-output.gif)
 
-##### Load the layout to place it elsewhere. You can rotate and invert the layout orientation!.
+#### Load the layout with the same number you saved to place it elsewhere. You can rotate and invert the layout orientation!
 
   ![Loading](https://github.com/noryon/BARLayoutPlanner/blob/main/images/loading_layout-output.gif)
   
