@@ -6,10 +6,6 @@
 
 This widget presents an interface that allows players to **draw, save, load and markup layouts** directly in-game.
 
-<p align="center">
-  <img src="images/fullmap.jpg" width="600" alt="GUI">
-  <i>A rather complex layout (in yellow) has been loaded multiple times, rotated, inverted and placed in different places.</i>
-</p>
 
 ### DISCLAIMERS
 It's not a lightweight widget (by widget standards); if your computer struggles with performance — especially memory — this widget might cause some stutters; even if you have plenty of memory, this widget can reach the memory treshold allowed by Spring Engine, which force garbage collection at 1.2GB, specially while using big layouts. I don't know if the memory is shared between all widgets or just one, but either way, you've been warned.
@@ -35,13 +31,15 @@ There are help texts and option inside the widget itself.
 ##### Draw the layout! Save it in one of the four slots.
 
 
-https://github.com/noryon/BARLayoutPlanner/blob/main/images/drawing_layout.mp4
-
+<p align="center">
+  <img src="drawing_layout-output" width="400" alt="GUI">
+</p>
 
 ##### Load the layout to place it elsewhere. You can rotate and invert the layout orientation!.
 
-https://github.com/noryon/BARLayoutPlanner/blob/main/images/loading_layout.mp4
-
+<p align="center">
+  <img src="loading_layout-output" width="400" alt="GUI">
+</p>
 --
 
 ### TIPS
