@@ -32,13 +32,13 @@ There are help texts and option inside the widget itself.
 
 
 <p align="center">
-  <img src="drawing_layout-output.gif" width="400" alt="GUI">
+  ![Drawing](./images/drawing_layout-output.gif)
 </p>
 
 ##### Load the layout to place it elsewhere. You can rotate and invert the layout orientation!.
 
 <p align="center">
-  <img src="loading_layout-output.gif" width="400" alt="GUI">
+  ![Loading](./images/loading_layout-output.gif)
 </p>
 --
 
