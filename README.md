@@ -20,45 +20,29 @@ It's not a lightweight widget (by widget standards); if your computer struggles 
 
 ### HOW TO INSTALL A WIDGET?
 It is very simple, you just need a folder named Widgets inside your game folder, as such:
-```[...]\Beyond-All-Reason\data\LuaUI\Widgets```
-One fast way to reach there is just click with the right mouse button on you game desktop icon and go "Open folder"
-Then you just copy .lua files of the widgets you want to install.
+
+```[...]\Beyond-All-Reason\data\LuaUI\Widgets``` (one fast way to reach the root folder is to just click with the right mouse button on you game desktop icon and go "Open folder", then you create the LuaUI and Widget folder if needed.)
+
+Once you have the widget folder you just copy the .lua files of the widgets you want to install.
 In game you can enable/disable them by name on the widget menu (press [F11] inside a game)
 
-
-### HOW TO USE THE WIDGET:
+### HOW TO USE THIS WIDGET:
 To draw a layout check the "Enable Layout Draw" option. It will enable drawing layout mode. While ON, you can paint the layout using the mouse, placing building-sized units with [LMB] and place lines with [RMB]
 
-
-
-
-
-##### Draw layout using building blocks of different sizes:
-
-<p align="center">
-  
-  <img src="images/buildingsizes.png" width="240" alt="Building Sizes">
-</p>
+There are help texts and option inside the widget itself.
 
 
 ##### Draw the layout! Save it in one of the four slots.
 
 <p align="center">
-  <img src="images/drawing _layout.gif" width="320" alt="Drawing">
+  [Drawing a Layout](https://github.com/noryon/BARLayoutPlanner/blob/main/images/drawing_layout.mp4)
 </p>
 
 
 ##### Load the layout to place it elsewhere. You can rotate and invert the layout orientation!.
 
 <p align="center">
-  <img src="images/loading_layout.gif" width="320" alt="Load">
-</p>
-
-##### Drawing Lines and erasing indidual lines
-
-<p align="center">
-  <img src="images/rendering_lines.gif" width="320" alt="Render">
-  <img src="images/erasing_lines.gif" width="320" alt="Render">
+  [Drawing a Layout](https://github.com/noryon/BARLayoutPlanner/blob/main/images/loading_layout.mp4)
 </p>
 
 --
