@@ -14,14 +14,6 @@ It's not a lightweight widget (by widget standards); if your computer struggles 
 > Please inspect the code and use the widget at your own risk. The Spring Engine (as far as I know) **does not allow a widget to access files outside the widget directory** for obvious security reasons. Performance wise, disk will be used only when a file is writen or read. If you're still suspicious, don't use this widget.  
 > This was made with **AI assistance**, if you think this is unholy, don't use this widget.
 
-### HOW TO INSTALL A WIDGET?
-It is very simple, you just need a folder named Widgets inside your game folder, as such:
-
-```[...]\Beyond-All-Reason\data\LuaUI\Widgets``` (one fast way to reach the root folder is to just click with the right mouse button on you game desktop icon and go "Open folder", then you create the LuaUI and Widget folder if needed.)
-
-Once you have the widget folder you just copy the .lua files of the widgets you want to install.
-In game you can enable/disable them by name on the widget menu (press [F11] inside a game)
-
 ### HOW TO USE THIS WIDGET:
 To draw a layout check the "Enable Layout Draw" option. It will enable drawing layout mode. While ON, you can paint the layout using the mouse, placing building-sized units with [LMB] and place lines with [RMB]
 
@@ -36,12 +28,20 @@ There are help texts and option inside the widget itself.
 ##### Load the layout to place it elsewhere. You can rotate and invert the layout orientation!.
 
   ![Loading](https://github.com/noryon/BARLayoutPlanner/blob/main/images/loading_layout-output.gif)
+  
 --
 
 ### TIPS
 - **Disable the option "Auto erase map marks"** on your Settings -> Interface, so that the lines do not disappear during the game.
 - **Test solo:** Load your map alone to experiment and save your layouts; load and use them in actual matches afterward.
 
+### HOW TO INSTALL A WIDGET?
+It is very simple, you just need a folder named Widgets inside your game folder, as such:
+
+```[...]\Beyond-All-Reason\data\LuaUI\Widgets``` (one fast way to reach the root folder is to just click with the right mouse button on you game desktop icon and go "Open folder", then you create the LuaUI and Widget folder if needed.)
+
+Once you have the widget folder you just copy the .lua files of the widgets you want to install.
+In game you can enable/disable them by name on the widget menu (press [F11] inside a game)
 
 ### OUTRO
 - I used a rendering line marks technique that I saw in another widget made by Lu5ck, which split longer lines and set them to a queue to be rendered during multiple frames, this avoid long lines and drawings limit per frame. Thank you. :)
