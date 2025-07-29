@@ -31,15 +31,11 @@ There are help texts and option inside the widget itself.
 ##### Draw the layout! Save it in one of the four slots.
 
 
-<p align="center">
   ![Drawing](https://github.com/noryon/BARLayoutPlanner/blob/main/images/drawing_layout-output.gif)
-</p>
 
 ##### Load the layout to place it elsewhere. You can rotate and invert the layout orientation!.
 
-<p align="center">
   ![Loading](https://github.com/noryon/BARLayoutPlanner/blob/main/images/loading_layout-output.gif)
-</p>
 --
 
 ### TIPS
