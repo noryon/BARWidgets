@@ -17,7 +17,7 @@ It's not a lightweight widget (by widget standards); if your computer struggles 
 ### HOW TO USE THIS WIDGET:
 To draw a layout check the "Enable Layout Draw" option. It will enable drawing layout mode. While ON, you can paint the layout using the mouse, placing building-sized units with [LMB] and place lines with [RMB]
 
-There are help texts and option inside the widget itself.
+There are help options inside the widget itself.
 
 To draw your layout, first click on "Enable Layout Draw". You will see a square at your mouse position; it is a preview of where you will draw to the layout. The small dot is where a line will begin.
 
@@ -63,10 +63,12 @@ Check and use the widget discord page if you have any trouble with this widget.
 ### HOW TO INSTALL A WIDGET?
 It is very simple, you just need a folder named Widgets inside your game folder, as such:
 
-```[...]\Beyond-All-Reason\data\LuaUI\Widgets``` (one fast way to reach the root folder is to just click with the right mouse button on you game desktop icon and go "Open folder", then you create the LuaUI and Widget folder if needed.)
+```[...]\Beyond-All-Reason\data\LuaUI\Widgets``` 
 
-Once you have the widget folder you just copy the .lua files of the widgets you want to install.
-In game you can enable/disable them by name on the widget menu (press [F11] inside a game)
+(one fast way to reach the root folder is to just click with the right mouse button on you game desktop icon and go "Open folder", then you create the LuaUI and Widget folder if needed.)
+
+To install a widget you just copy the .lua file inside the Widgets folder.
+In game you can enable/disable installed widgets by name on the widget menu (press [F11] inside a game).
 
 ### OUTRO
 - I used a rendering line marks technique that I saw in another widget made by Lu5ck, which split longer lines and set them to a queue to be rendered during multiple frames, this avoid long lines and drawings limit per frame. Thank you. :)
