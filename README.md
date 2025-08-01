@@ -15,27 +15,18 @@ It's not a lightweight widget (by widget standards); if your computer struggles 
 > This was made with **AI assistance**, if you think this is unholy, don't use this widget.
 
 ### HOW TO USE THIS WIDGET:
-To draw a layout check the "Enable Layout Draw" option. It will enable drawing layout mode. While ON, you can paint the layout using the mouse, placing building-sized units with [LMB] and place lines with [RMB]
+- To draw a layout check the "Enable Layout Draw" option. It will enable drawing layout mode. While ON, you can paint the layout using the mouse, placing building-sized units with [LMB] and place lines with [RMB]
 
-There are help options inside the widget itself.
-
-To draw your layout, first click on "Enable Layout Draw". You will see a square at your mouse position; it is a preview of where you will draw to the layout. The small dot is where a line will begin.
-
-Use [left mouse button] to place buildings, use [ALT] or [ALT + CTRL] keys to change the way it is placed.
-
-Use [right mouse button] to render arbitrary lines to your layout; hold the [ALT] key so you can remove lines.
-
-Select one size for the building (Small, Square, Big, Large or Chunk) to place. Adjacent buildings of the same size will be rendered together (i.e.: a single contour for the shape defined by buildings of the same type).
-
-You can use CTRL+Z/CTRL+A to undo/redo your actions over the active layout.
-
-Once the layout is created, save it on a slot using a Save button below, you can load it anytime later pressing the Load button with same slot number.
-
-A loaded layout can be rotated with the [R] key and inverted with the [I] key before being placed.
-
-Press "Render" to draw the active layout to the game.
-
-You can click and drag the widget window by the title bar.
+- There are help options inside the widget itself.
+- To draw your layout, first click on "Enable Layout Draw". You will see a square at your mouse position; it is a preview of where you will draw to the layout. The small dot is where a line will begin.
+- Use [left mouse button] to place buildings, use [ALT] or [ALT + CTRL] keys to change the way it is placed.
+- Use [right mouse button] to render arbitrary lines to your layout; hold the [ALT] key so you can remove lines.
+- Select one size for the building (Small, Square, Big, Large or Chunk) to place. Adjacent buildings of the same size will be rendered together (i.e.: a single contour for the shape defined by buildings of the same type).
+- You can use CTRL+Z/CTRL+A to undo/redo your actions over the active layout.
+- Once the layout is created, save it on a slot using a Save button below, you can load it anytime later pressing the Load button with same slot number.
+- A loaded layout can be rotated with the [R] key and inverted with the [I] key before being placed. If you hold [ALT] while placing the layout [LMB] you will merge the loaded layout with your active layout.
+- Press "Render" to draw the active layout to the game.
+- You can click and drag the widget window by the title bar.
 
 
 
