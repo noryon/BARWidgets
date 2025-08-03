@@ -11,7 +11,7 @@ This widget presents an interface that allows players to **draw, save, load and 
 It's not a lightweight widget (by widget standards); if your computer struggles with performance — especially memory — this widget might cause some stutters; even if you have plenty of memory, this widget can reach the memory treshold allowed by Spring Engine, which force garbage collection at 1.2GB, specially while using big layouts. I don't know if the memory is shared between all widgets or just one, but either way, you've been warned.
 
 > ⚠️ This widget **might use file reading and writing** from your computer for saving/loading layouts.  
-> Please inspect the code and use the widget at your own risk. The Spring Engine (as far as I know) **does not allow a widget to access files outside the widget directory** for obvious security reasons. Performance wise, disk will be used only when a file is writen or read.
+> The Spring Engine (as far as I know) **does not allow a widget to access files outside the widget directory** for obvious security reasons. Performance wise, disk will be used only when a file is writen or read to save layouts and this widget configuration .
 
 > This was made with **AI assistance**, if you think this is unholy, don't use this widget.
 
