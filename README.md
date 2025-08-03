@@ -12,6 +12,7 @@ It's not a lightweight widget (by widget standards); if your computer struggles 
 
 > ⚠️ This widget **might use file reading and writing** from your computer for saving/loading layouts.  
 > Please inspect the code and use the widget at your own risk. The Spring Engine (as far as I know) **does not allow a widget to access files outside the widget directory** for obvious security reasons. Performance wise, disk will be used only when a file is writen or read.
+
 > This was made with **AI assistance**, if you think this is unholy, don't use this widget.
 
 ### HOW TO USE THIS WIDGET:
