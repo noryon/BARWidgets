@@ -1249,7 +1249,6 @@ local function MakeSelectionGroup(params)
         #group.options >= i then
           group.hoveredIdx = i
           currentToolTip = group.options[i].tooltip
-          Spring.Echo("ohoho hoy hoo ho-hoy how hohae hihi hoy")
         return true
       end
 
@@ -2356,4 +2355,5 @@ function widget:Update(dt)
     end
     timer = 0
   end
+
 end
