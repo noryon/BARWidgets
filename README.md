@@ -6,6 +6,7 @@
 
 This widget presents an interface that allows players to **draw, save, load and markup layouts** directly in-game.
 
+[How to Install a Widget?](#how-to-install-a-widget)
 
 ### DISCLAIMERS
 It's not a lightweight widget (by widget standards); if your computer struggles with performance — especially memory — this widget might cause some stutters; even if you have plenty of memory, this widget can reach the memory treshold allowed by Spring Engine, which force garbage collection at 1.2GB, specially while using big layouts. I don't know if the memory is shared between all widgets or just one, but either way, you've been warned.
