@@ -13,8 +13,8 @@ end
 ------------------------------------------------------------------------------------------
 ------------------------------USER PREFERENCES / DEFAULT VALUES---------------------------
 ------------------------------------------------------------------------------------------
-local slots = 8                     --AMOUNT OF [SAVE/LOAD] SLOTS YOU WANT THE WIDGET TO DISPLAY   [0, ~)
-local slotsPerRow = 4                --HOW MANY SLOTS WILL BE DISPLAYED PER ROW                     [1, ~)
+local slots = 20                    --AMOUNT OF [SAVE/LOAD] SLOTS YOU WANT THE WIDGET TO DISPLAY   [0, ~)
+local slotsPerRow = 5               --HOW MANY SLOTS WILL BE DISPLAYED PER ROW                     [1, ~)
 local allowTranslationByKeys = true --WHETHER LAYOUT CAN BE SHIFTED USING KEYBOARD KEYS            [true, false]
 local snapBuilding = true            --SNAP BUILDING TO GRID                                        [true, false]
 local drawChunkGrid = true          --DRAW A CHUNK ALIGNED GRID                                    [true, false]
@@ -1088,11 +1088,21 @@ end
 
 --------------------------------------------------------------------------------
 -- Button
+function lightenColor(color, factor)
+    factor = math.max(0, math.min(factor or 0.4, 1)) 
+
+    local r = color[1] + (1 - color[1]) * factor
+    local g = color[2] + (1 - color[2]) * factor
+    local b = color[3] + (1 - color[3]) * factor
+    local a = color[4] or 1
+
+    return {r, g, b, a}
+end
 
 local function MakeButton(params)
   local button = MakeLabel(params)
   button.onClick = params.onClick or function() end
-
+  button.hovered = false
   function button:MousePress(mx, my, buttonNum)
     if mx >= self.x and mx <= self.x + self.width and
        my >= self.y and my <= self.y + self.height then
@@ -1100,6 +1110,27 @@ local function MakeButton(params)
       return true
     end
     return false
+  end
+
+  function button:Draw()
+    if self.hovered then
+      glColor(lightenColor(self.bgColor))
+      self.hovered = false
+    else
+      glColor(self.bgColor)
+    end
+
+    glRect(self.x, self.y, self.x + self.width, self.y + self.height)
+    glColor(self.fontColor)
+    glText(self.text, self.x + 5, self.y + (self.height - self.fontSize) / 2 + 2, self.fontSize, "")
+  end
+
+  function button:Hover(mx, my)
+    button.hovered = mx >= self.x and mx <= self.x + self.width and my >= self.y and my <= self.y + self.height
+    if button.hovered and self.tooltip then
+      currentToolTip = self.tooltip
+    end
+    return button.hovered
   end
 
   return button
@@ -1112,6 +1143,7 @@ local function MakeCheckbox(params)
   local cb = MakeLabel(params)
   cb.checked = params.checked or false
   cb.onToggle = params.onToggle or function() end
+  cb.hovered = false
 
   function cb:Draw()
 	--background
@@ -1121,7 +1153,13 @@ local function MakeCheckbox(params)
     local boxSize = self.height * 1
     local boxX = self.x + 5
     local boxY = self.y + (self.height - boxSize) / 2
-    glColor(0.2, 0.2, 0.2, 1)
+    if self.hovered then
+      glColor(0.3, 0.3, 0.3, 1)
+      self.hovered = false
+    else
+      glColor(0.2, 0.2, 0.2, 1)
+    end
+
     glRect(boxX, boxY, boxX + boxSize, boxY + boxSize)
     if self.checked then
       local inset = 2
@@ -1140,7 +1178,15 @@ local function MakeCheckbox(params)
 	self.width = textWidth + 10 + 20
     return self.width + 2 * self.margin + self.height + 10, self.height + 2 * self.margin
   end
-    
+   
+  function cb:Hover(mx, my)
+    cb.hovered = mx >= self.x and mx <= self.x + self.width and my >= self.y and my <= self.y + self.height
+    if cb.hovered and self.tooltip then
+      currentToolTip = self.tooltip
+    end
+    return cb.hovered
+  end
+
   function cb:MousePress(mx, my, buttonNum)
     if mx >= self.x and mx <= self.x + self.width and
        my >= self.y and my <= self.y + self.height then
@@ -1160,6 +1206,7 @@ local function MakeSelectionGroup(params)
   local group = BaseElement(params)
   group.options = params.options or {}
   group.selected = params.selected or nil
+  group.hoveredIdx = -1
   group.onSelect = params.onSelect or function(index) end
   group.fontSize = params.fontSize or 14
   group.itemBgColor = params.itemBgColor or {0.2, 0.2, 0.2, 1}
@@ -1170,7 +1217,7 @@ local function MakeSelectionGroup(params)
     local height = 0
     local width = 0
     for _, opt in ipairs(self.options) do
-      local w = glGetTextWidth(opt) * self.fontSize + 30
+      local w = glGetTextWidth(opt.name) * self.fontSize + 30
       width = math.max(width, w)
       height = height + self.fontSize + 10
     end
@@ -1179,35 +1226,37 @@ local function MakeSelectionGroup(params)
     return self.width + 2 * self.margin, self.height + 2 * self.margin
   end
 
-function group:Hover(mx, my)
-	if not group.optionTooltips then
-		return false
-	end
+  function group:Hover(mx, my)
+    if not group.optionTooltips then
+      return false
+    end
 
-	local boxSize = self.fontSize + 4
-	local spacing = 6
-	local offsetY = self.y + self.height - boxSize
+    local boxSize = self.fontSize + 4
+    local spacing = 6
+    local offsetY = self.y + self.height - boxSize
 
-	for i = 1, #self.options do
-		local boxX = self.x -2
-		local boxY = offsetY-2
-		local text = self.options[i]
-		local textWidth = glGetTextWidth(text) * self.fontSize  + 5+2
-		local totalWidth = boxSize + 5 + textWidth+2
-		local areaX2 = boxX + totalWidth
-		local areaY2 = boxY + boxSize
+    for i = 1, #self.options do
+      local boxX = self.x -2
+      local boxY = offsetY-2
+      local text = self.options[i].name
+      local textWidth = glGetTextWidth(text) * self.fontSize  + 5+2
+      local totalWidth = boxSize + 5 + textWidth+2
+      local areaX2 = boxX + totalWidth
+      local areaY2 = boxY + boxSize
 
-		if mx >= boxX and mx <= areaX2 and
-		  my >= boxY and my <= areaY2 and
-		  #group.optionTooltips >= i then
-			currentToolTip = group.optionTooltips[i]
-			return true
-		end
+      if mx >= boxX and mx <= areaX2 and
+        my >= boxY and my <= areaY2 and
+        #group.options >= i then
+          group.hoveredIdx = i
+          currentToolTip = group.options[i].tooltip
+          Spring.Echo("ohoho hoy hoo ho-hoy how hohae hihi hoy")
+        return true
+      end
 
-		offsetY = offsetY - (boxSize + spacing)
-	end
-	return false
-end
+      offsetY = offsetY - (boxSize + spacing)
+    end
+    return false
+  end
 
   function group:Draw()
     glColor(self.bgColor)
@@ -1221,14 +1270,27 @@ end
       local isSelected = (i == self.selected)
       local boxX = self.x
       local boxY = offsetY
-      glColor(0.2, 0.2, 0.2, 1)
+      --if differTypesByColor then
+      --  local r,g,b,a = unpack(option.color)
+      --  a = 0.8
+      --  glColor(r,g,b,a)
+      --else
+    --    glColor(0.2, 0.2, 0.2, 1)
+      --end
+      if self.hoveredIdx == i then
+        glColor(0.3, 0.3, 0.3, 1)
+        self.hoveredIdx = -1
+      else
+        glColor(0.2, 0.2, 0.2, 1)
+      end
+      
       glRect(boxX, boxY, boxX + boxSize, boxY + boxSize)
       if isSelected then
         glColor(0, 0.8, 0.8, 1)
         glRect(boxX + 2, boxY + 2, boxX + boxSize - 2, boxY + boxSize - 2)
       end
       glColor(self.fontColor)
-      glText(option, boxX + boxSize + 5, boxY + (boxSize - self.fontSize) / 2 + 2, self.fontSize, "")
+      glText(option.name, boxX + boxSize + 5, boxY + (boxSize - self.fontSize) / 2 + 2, self.fontSize, "")
       offsetY = offsetY - (boxSize + spacing)
     end
   end
@@ -1242,7 +1304,7 @@ end
     for i = 1, #self.options do
       local boxX = self.x -2
       local boxY = offsetY-2
-      local text = self.options[i]
+      local text = self.options[i].name
       local textWidth = glGetTextWidth(text) * self.fontSize  + 5+2
       local totalWidth = boxSize + 5 + textWidth+2
       local areaX2 = boxX + totalWidth
@@ -1279,7 +1341,7 @@ local function MakeWindow(params)
 
   local titleBarHeight = 32
   local closeButton = MakeButton{
-	bgColor = {0.6, 0.1, 0.0, 1.0}, height = titleBarHeight - 8, text = "Close Widget", onClick = params.onClose
+	  bgColor = {0.6, 0.1, 0.0, 1.0}, height = titleBarHeight - 8, text = "Close Widget", onClick = params.onClose
   }
   window.closeButton = closeButton
 
@@ -1355,6 +1417,7 @@ local function MakeWindow(params)
   end
 
   function window:Hover(mx, my)
+    if closeButton:Hover(mx, my) then return end
     self.content:Hover(mx, my)
   end
 
@@ -1428,19 +1491,10 @@ function widget:Initialize()
 				 Spring.Echo("[LayoutPlanner] Snap: " .. (snapBuilding and "ON" or "OFF"))
 			   end
   }))
-  --Building sizes
-	local buildingOptions = {}
-	local buildingTooltips = {}
 
-	for _, b in ipairs(buildingTypes) do
-	  table.insert(buildingOptions, b.name)
-	  table.insert(buildingTooltips, b.tooltip)
-	end
-  
-  
+  --Building sizes
   drawBox:Add(MakeSelectionGroup({
-    options = buildingOptions,
-    selected = currentSizeIndex,
+    options = buildingTypes,
     fontSize = 16,
     optionTooltips = buildingTooltips,
     onSelect = function(i) Spring.Echo("[LayoutPlanner] Current Size: " .. i) currentSizeIndex = i	end
@@ -1471,7 +1525,7 @@ function widget:Initialize()
   shiftAndGridBox:Add(MakeCheckbox({
     text = "Shift Layout",
     checked = allowTranslationByKeys,
-    tooltip = "Whether the (green) layout can be shifted using the keyboard WASD keys",
+    tooltip = "Whether the active layout can be shifted using the keyboard WASD keys",
     fontSize = 16,
     onToggle = function(state) 
       allowTranslationByKeys = not allowTranslationByKeys
@@ -1516,7 +1570,7 @@ function widget:Initialize()
     text = "Auto Erase Reminder",
     fontSize = 20,
     bgColor = {0.0, 0.2, 0.1, 1.0},
-    tooltip = "Send a message about how to disable auto erase. Lots of new players might need to know this.",
+    tooltip = "Send a message about how to disable auto erase. New players on your lobby might need to know this. :)",
     onClick = function() Spring.SendCommands({"say Go to Settings -> Interface, disable the option \"Auto Erase Map Marks\" so you never lose the layout lines again :)"}) end
   }))
   
@@ -1551,17 +1605,19 @@ function widget:Initialize()
 	  content:Add(row)
 	end
 
-  content:Add(MakeLabel({bgColor =  {0.45, 0.16, 0.025, 1.0}, text = "[I AM IN A PANIC]", fontSize = 14, tooltip = [[
+  content:Add(MakeLabel({bgColor =  {0.45, 0.16, 0.025, 1.0}, text = "DON'T PANIC!", fontSize = 14, tooltip = [[
 DON'T PANIC!
     To draw your layout, first click on "Enable Layout Draw". You will see a square at your mouse position; it is a preview of where you will draw to the layout. The small dot is where a line will begin.
     Use [left mouse button] to place buildings, use [ALT] or [ALT + CTRL] keys to change the way it is placed.
     Use [right mouse button] to render arbitrary lines to your layout; hold the [ALT] key so you can remove lines.
-    Select one size for the building (Small, Square, Big, Large or Chunk) to place. Adjacent buildings of the same size will be rendered together (i.e.: a single contour for the shape defined by buildings of the same type).
-    You can use CTRL+Z/CTRL+A to undo/redo your actions.
+    You can draw your layout using different size of buildings (Small, Square, Big, Large or Chunk). Adjacent buildings of the same size will be rendered together (i.e.: a single contour for the shape defined by buildings of the same type).
+    You can use CTRL+Z/CTRL+A to undo/redo your actions over the active layout.
     Once the layout is created, save it on a slot using a Save button below, you can load it anytime later pressing the Load button with same slot number.
     A loaded layout can be rotated with the [R] key and inverted with the [I] key before being placed.
     Press "Render" to draw the active layout to the game.
-  
+    You can click and drag the widget window by the title bar.
+
+
 IF YOUR ARE NEW:
     Draw your layout alligned to chunks. The size of a chunk is a multiple of almost every building in the game! You can optimize your layout space based on this.
     Use the "Snap" option! Its the best way to render regular layouts, which will be alligned to the grid.
@@ -1852,7 +1908,7 @@ function widget:MouseRelease(mx, my, button)
         end
         RunCommand(cmd)
 
-        Spring.Echo("Traced Bounds")
+        --Spring.Echo("Traced Bounds")
       else
         --RENDER STUFF WITH BUILDINGS
         --local list = GetBuildingList(dragStart, bx, bz, altMode)
