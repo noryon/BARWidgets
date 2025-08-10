@@ -58,10 +58,12 @@ It is very simple, you just need a folder named Widgets inside your game folder,
 
 ```[...]\Beyond-All-Reason\data\LuaUI\Widgets``` 
 
-(one fast way to reach the root folder is to just click with the right mouse button on you game desktop icon and go "Open folder", then you create the LuaUI and Widget folder if needed.)
+(one fast way to reach the root folder is to just click with the right mouse button on your game desktop icon and go "Open folder", then you create the LuaUI and Widget folder if needed.)
 
 To install a widget you just copy the .lua file inside the Widgets folder.
 In game you can enable/disable installed widgets by name on the widget menu (press [F11] inside a game).
+
+If you installed a widget while your game is open, it may not be recognized by the system, you need to close and open the game again or use the command ```/luauai reload```
 
 ### OUTRO
 - I used a rendering line marks technique that I saw in another widget made by Lu5ck, which split longer lines and set them to a queue to be rendered during multiple frames, this avoid long lines and drawings limit per frame. Thank you. :)
