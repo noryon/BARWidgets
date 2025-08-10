@@ -13,7 +13,7 @@ end
 ------------------------------------------------------------------------------------------
 ------------------------------USER PREFERENCES / DEFAULT VALUES---------------------------
 ------------------------------------------------------------------------------------------
-local slots = 20                    --AMOUNT OF [SAVE/LOAD] SLOTS YOU WANT THE WIDGET TO DISPLAY   [0, ~)
+local slots = 10                    --AMOUNT OF [SAVE/LOAD] SLOTS YOU WANT THE WIDGET TO DISPLAY   [0, ~)
 local slotsPerRow = 5               --HOW MANY SLOTS WILL BE DISPLAYED PER ROW                     [1, ~)
 local allowTranslationByKeys = true --WHETHER LAYOUT CAN BE SHIFTED USING KEYBOARD KEYS            [true, false]
 local snapBuilding = true            --SNAP BUILDING TO GRID                                        [true, false]
@@ -1582,20 +1582,22 @@ function widget:Initialize()
 	local rows = math.ceil(slots / slotsPerRow)
 
 	for h = 0, rows - 1 do
-	  local row = Box({ orientation = "horizontal", spacing = 6, padding = 4 })
+	  local row = Box({ orientation = "horizontal", spacing = 13, padding = 4 })
 
 	  for i = 1, slotsPerRow do
 		local slotId = h * slotsPerRow + i
 		if slotId > slots then break end
 
+    local slotName = slotId < 10 and "0" .. tostring(slotId) or tostring(slotId)
+
 		local slot = Box({ orientation = "vertical", spacing = 6, padding = 4, bgColor = {0.0,0.0,0,1} })
 		slot:Add(MakeButton({
-		  text = "Save " .. slotId,
+		  text = "Save " .. slotName,
 		  bgColor =  {0.15, 0.6, 0.25, 1.0},
 		  onClick = function() SaveLayout(slotId) end
 		}))
 		slot:Add(MakeButton({
-		  text = "Load " .. slotId,
+		  text = "Load " .. slotName,
 		  bgColor =  {0.3, 0.4, 1, 1.0},
 		  onClick = function() LoadLayout(slotId)  end
 		}))
