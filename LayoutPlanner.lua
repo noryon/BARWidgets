@@ -1,7 +1,11 @@
 function widget:GetInfo()
   return {
     name    = "Layout Planner",
-    desc    = "Plan, save and load base layouts using in game interface. https://github.com/noryon/BARLayoutPlanner",
+    desc    = [[
+    Plan, save and load base layouts using in game interface.
+    GitHub: https://github.com/noryon/BARLayoutPlanner"
+    Discord: https://discord.com/channels/549281623154229250/1383202304345378826
+    ]],
     author  = "Noryon",
     date    = "2025-06-12",
     license = "MIT",
@@ -13,7 +17,7 @@ end
 ------------------------------------------------------------------------------------------
 ------------------------------USER PREFERENCES / DEFAULT VALUES---------------------------
 ------------------------------------------------------------------------------------------
-local slots = 10                    --AMOUNT OF [SAVE/LOAD] SLOTS YOU WANT THE WIDGET TO DISPLAY   [0, ~)
+local slots = 20                    --AMOUNT OF [SAVE/LOAD] SLOTS YOU WANT THE WIDGET TO DISPLAY   [0, ~)
 local slotsPerRow = 5               --HOW MANY SLOTS WILL BE DISPLAYED PER ROW                     [1, ~)
 local allowTranslationByKeys = true --WHETHER LAYOUT CAN BE SHIFTED USING KEYBOARD KEYS            [true, false]
 local snapBuilding = true            --SNAP BUILDING TO GRID                                        [true, false]
@@ -1205,7 +1209,7 @@ end
 local function MakeSelectionGroup(params)
   local group = BaseElement(params)
   group.options = params.options or {}
-  group.selected = params.selected or nil
+  group.selected = params.selected or 1
   group.hoveredIdx = -1
   group.onSelect = params.onSelect or function(index) end
   group.fontSize = params.fontSize or 14
@@ -1741,6 +1745,7 @@ function widget:MousePress(mx, my, button)
     if dragStart then dragStart = nil return true end
 
     local _, pos = Spring.TraceScreenRay(mx, my, true)
+    if not pos then return end
     local bx, bz = WorldToBU(pos[1] + HALF_BU, pos[3] + HALF_BU)
     lineStart = {bx = bx, bz = bz}
     return true
@@ -1944,6 +1949,10 @@ function widget:MouseRelease(mx, my, button)
     dragStart = nil
   elseif button == 3 and lineStart then
     local _, pos = Spring.TraceScreenRay(mx, my, true)
+    if not pos then
+      lineStart = nil
+      return
+    end
     local ex, ez = WorldToBU(pos[1] + HALF_BU, pos[3] + HALF_BU)
 
     if altMode then
@@ -2355,5 +2364,4 @@ function widget:Update(dt)
     end
     timer = 0
   end
-
 end
