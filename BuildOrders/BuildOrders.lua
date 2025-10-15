@@ -1,3 +1,5 @@
+local WIDGET_NAME = "Build Orders"
+
 local WIDGET_DESC = [[
   This widget stablishes a mechanism of BuildOrders which will take control of constructors units to force the construction of specific units.
   You define two lists: 
@@ -20,15 +22,16 @@ local WIDGET_DESC = [[
   --You can hold Shift to queue units of the same type (trying to enqueue different buildings will cause it to ignore the previous build orders)
   --A constructor cannot reclaim itself with its own build order (although other worker might call to reclaim another blocking worker)
   --This works with HOLO PLACE; build orders will proceed once reach the HOLO-PLACE target
+  --Construction turrets cannot erase turrets of the same tier, or a tier above.
   ]]
 
 function widget:GetInfo()
   return {
-    name      = "Build Orders",
+    name      = WIDGET_NAME,
     desc      = WIDGET_DESC,
     author    = "Noryon",
     date      = "2025-10-11",
-    license   = "",
+    license   = "MIT",
     layer     = 0,
     enabled   = true,
   }
@@ -71,14 +74,26 @@ local PRIORITY = {
   --"legnanotc",
 
   "armnanotct2",
-  "armnanotct3",
-  
   "cornanotct2",
-  "cornanotct3",
-  
-  "legnanotct3",
   "legnanotct2",
+  
+  "armnanotct3",
+  "cornanotct3",
+  "legnanotct3",
 }
+
+local BUILDABLE_NANO_TIER = {}
+BUILDABLE_NANO_TIER[UnitDefNames["armnanotc"].id] = 1
+BUILDABLE_NANO_TIER[UnitDefNames["cornanotc"].id] = 1
+BUILDABLE_NANO_TIER[UnitDefNames["legnanotc"].id] = 1
+
+BUILDABLE_NANO_TIER[UnitDefNames["armnanotct2"].id] = 2
+BUILDABLE_NANO_TIER[UnitDefNames["cornanotct2"].id] = 2
+BUILDABLE_NANO_TIER[UnitDefNames["legnanotct2"].id] = 2
+
+BUILDABLE_NANO_TIER[UnitDefNames["armnanotct3"].id] = 3
+BUILDABLE_NANO_TIER[UnitDefNames["cornanotct3"].id] = 3
+BUILDABLE_NANO_TIER[UnitDefNames["legnanotct3"].id] = 3
 
 local ERASEABLE = {
 
@@ -200,7 +215,6 @@ holoToYolo[3] = 0.3
 holoToYolo[4] = 0.6
 holoToYolo[5] = 0.9
 
-local WIDGET_NAME = "Build Orders"
 VFS.Include("luaui/Headers/keysym.h.lua")
 local GetModKeyState       = Spring.GetModKeyState
 local GetKeyState          = Spring.GetKeyState
@@ -1397,7 +1411,11 @@ local function updateWorker(unitid, canCallReclaim)
 
             local removeNext = false
             for i, hit in ipairs(hits) do
-                if not ERASEABLE_LOOKUP[hit.unitDefId] or hit.unitDefId == entry.buildDef.id then
+                -- Cancel queue item if a blocker:
+                --    is not eraseable
+                --    is the same unitDef as the one being built
+                --    if blocker and unit are nanos, but blocker is a higher tier (if a unit is not a nano, i give it a high "tier" (100) just to pass the test over any nano)
+                if not ERASEABLE_LOOKUP[hit.unitDefId] or hit.unitDefId == entry.buildDef.id or ((BUILDABLE_NANO_TIER[entry.buildDef.id] or 100) - (BUILDABLE_NANO_TIER[hit.unitDefId] or 0)) <= 0 then
                     removeNext = true
                     break
                 end
