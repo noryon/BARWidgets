@@ -6,8 +6,7 @@
 
 This widget stablishes a mechanism of BuildOrders which will take control of constructors units to force the construction of specific units. The code uses two list of unitDefs names: PRIORITY and ERASEABLE. Once enabled, this widget will take control of PRIORITY units, and automatically call reclaim on any ERASEABLE units blocking the construction.
 
-  ![Loading](https://github.com/noryon/BARWidgets/BuildOrders/blob/main/images/showcase.gif)
-
+  ![example](https://github.com/noryon/BARWidgets/blob/main/BuildOrders/images/showcase.gif)
 
 ### DISCLAIMERS
 
