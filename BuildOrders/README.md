@@ -1,0 +1,37 @@
+# BARBuildOrders
+
+<p align="center">
+  <img src="images/gui.png" width="400" alt="GUI">
+</p>
+
+This widget stablishes a mechanism of BuildOrders which will take control of constructors units to force the construction of specific units. The code uses two list of unitDefs names: PRIORITY and ERASEABLE. Once enabled, this widget will take control of PRIORITY units, and automatically call reclaim on any ERASEABLE units blocking the construction.
+
+  ![Loading](https://github.com/noryon/BARBuildOrders/blob/main/images/showcase.gif)
+
+
+### DISCLAIMERS
+
+> ⚠️ This widget **might use file reading and writing** from your computer for saving/loading widget config. For clarity:
+> - The Spring Engine **does not allow a widget to access files outside the widget directory** for obvious security reasons.
+> - Performance wise, disk will be used only when a file is writen or read to save layouts and this widget configuration.
+
+> This was made with **AI assistance**, if you think this is unholy, don't use this widget.
+
+### HOW TO INSTALL A WIDGET?
+It is very simple, you just need a folder named Widgets inside your game folder, as such:
+
+```[...]\Beyond-All-Reason\data\LuaUI\Widgets``` 
+
+(one fast way to reach the root folder is to just click with the right mouse button on your game desktop icon and go "Open folder", then you create the LuaUI and Widget folder if needed.)
+
+To install a widget you just copy the .lua file inside the Widgets folder.
+In game you can enable/disable installed widgets by name on the widget menu (press [F11] inside a game).
+
+If you installed a widget while your game is open, it may not be recognized by the system, you need to close and open the game again or use the command ```/luaui reload```
+
+### OUTRO
+Huge thanks to Fast for testing and sharing his ideas about this widget.
+
+Thanks to timuela and manshanko for widgets somewhat related to this one.
+
+The widget displaying construction time on the gif is Time Estimator made by Pyrem https://github.com/Relicus/pyrem_bar_widgets, thank you.
