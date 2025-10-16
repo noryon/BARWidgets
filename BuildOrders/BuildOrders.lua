@@ -1,7 +1,7 @@
 local WIDGET_NAME = "Build Orders"
 
 local WIDGET_DESC = [[
-  This widget stablishes a mechanism of BuildOrders which will take control of constructors units to force the construction of specific units.
+  This widget stablishes a mechanism of BuildOrders which will take control of constructors units to force the construction of specific buildings.
   You define two lists: 
       - PRIORITY list have units that can call for reclaim when its build space is blocked.
       - ERASEABLE list define which units this widget can reclaim to give space for priority units.
@@ -40,10 +40,12 @@ end
 local UI = true
 
 local PRIORITY = {
+  --EFUS
   "armafust3",
   "legafust3",
   "corafust3",
 
+  --T3 converter
   "armmmkrt3",
   "cormmkrt3",
   "legadveconvt3",
@@ -51,6 +53,8 @@ local PRIORITY = {
   "armapt3",    --dont remember but must be important
   "corapt3",
   "legapt3",
+
+  "legflak",   --plutos because i want
 
   "cordoomt3", --epic bulwark
   "corint",    --basilisk
@@ -110,6 +114,7 @@ local ERASEABLE = {
   "legnanotct3",
   "legnanotct2",
 
+  --dont remember
   "armap",
   "corap",
   "legap",
@@ -203,17 +208,15 @@ local ERASEABLE = {
   "legsolar",
 }
 
-
-
-local enableBuildOrders        = true
+local enableBuildOrders        = false
 
 local knownYolos = {} --map [id] = yolo value
 local holoToYolo = {}
-holoToYolo[1] = 1
-holoToYolo[2] = 0.01
-holoToYolo[3] = 0.3
-holoToYolo[4] = 0.6
-holoToYolo[5] = 0.9
+      holoToYolo[1] = 1    -- 100%
+      holoToYolo[2] = 0.001 -- "instant mode" is not really instant
+      holoToYolo[3] = 0.3  -- 30%
+      holoToYolo[4] = 0.6  
+      holoToYolo[5] = 0.9
 
 VFS.Include("luaui/Headers/keysym.h.lua")
 local GetModKeyState       = Spring.GetModKeyState
@@ -314,7 +317,6 @@ local function buildLookups(base)
 
       dest[ud.id] = {
         id                 = ud.id,                  -- unitdef id
-        health             = ud.health,               -- will beu sed by yoloplace later
         xsize              = xsize, zsize = zsize,   -- size  (tiles)
         halfX              = halfw, halfZ = halfh,   --half size (word size)
         searchRadius       = radius,                 --search radius for broad phase intersection test
@@ -614,18 +616,17 @@ local INSERT_OPT = { "alt" }
 local REC_PARAMS = {0, CMD.RECLAIM, CMD.OPT_SHIFT, 0} -- reuse/copy as needed
 
 -- this method can be better. Too messy and heavy?
-local function reclaimHitsImmediate(hits)
-  if not hits or #hits == 0 then return end
-
+local function reclaimHitsImmediate(hits) --hits = map[int] = true
   -- build map[targetID] = { nanoID, ... } and nanoTag set
   local map = {}
   local nanoTag = {} -- nanoTag[nanoID] = true
   local minNanos = math.huge
 
-  for _, hit in ipairs(hits) do
-    local tid = hit.id
-    local nanosInRange = nanosNearTarget(tid) or {}
-    map[tid] = nanosInRange
+  local targetCount = 0
+  for hitUnitId, _ in pairs(hits) do
+    local nanosInRange = nanosNearTarget(hitUnitId) or {}
+    map[hitUnitId] = nanosInRange
+    targetCount = targetCount + 1
 
     -- track all unique nanos
     for _, nid in ipairs(nanosInRange) do
@@ -643,7 +644,6 @@ local function reclaimHitsImmediate(hits)
   if nanoCount == 0 then return end
 
   -- share = how many nanos to use per target (floor division), at least 1
-  local targetCount = #hits
   local share = math.max(1, math.floor(nanoCount / math.max(1, targetCount)))
 
   -- build sortable list of targets and sort by ascending number of reachable nanos
@@ -677,19 +677,19 @@ local function reclaimHitsImmediate(hits)
 end
 
 
-local function findIntersectingEraseables(buildOrder, wx, wz, ignoreUnit)
+local function findIntersectingUnits(buildOrder, wx, wz, ignoreUnit)
   local radius = buildOrder.buildDef.searchRadius + biggestSearchRadius
   local candidates = GetUnitsInCylinder(wx, wz, radius) or {} --broad phase with cyulinder
 
-  local halfX, halfZ = buildOrder.halfX - HALF_TILE_SIZE, buildOrder.halfZ - HALF_TILE_SIZE -- why am i subtracting half tile size here?
-  local hits = {} -- structure: {{id, unitdefid, ux, uz, halfX, halfZ}}
-
+  local halfX, halfZ = buildOrder.halfX - HALF_TILE_SIZE, buildOrder.halfZ - HALF_TILE_SIZE
+  local hits = {} -- structure: [id] = unitDefId
   for _, uid in ipairs(candidates) do
     if GetUnitTeam(uid) == localTeam and uid ~= ignoreUnit then
       local ux, uy, uz = GetUnitPosition(uid)
       if ux then
         local unitDefID = GetUnitDefID(uid)
         local uDef = UnitDefs[unitDefID]
+
         if uDef and not uDef.canFly then --ignore flying units, i can build where they are
           
           local xsize = uDef.xsize
@@ -704,14 +704,8 @@ local function findIntersectingEraseables(buildOrder, wx, wz, ignoreUnit)
           local uHalfZ = zsize * HALF_TILE_SIZE
 
           ux, uz = snapToBuild(ux, uz, xsize, zsize)
-          -- "perfect " match - pray for the floating points to not fuckup
           if rectsIntersect(wx, wz, halfX, halfZ, ux, uz, uHalfX, uHalfZ) then
-            hits[#hits + 1] = {
-              id = uid,
-              unitDefId = unitDefID,
-              ux = ux, uz = uz,
-              halfX = uHalfX, halfZ = uHalfZ
-            }
+            hits[uid] = unitDefID
           end
         end
       end
@@ -726,13 +720,13 @@ local function resetPlacementLocalData()
 end
 
 local function SaveUserPreferences()
-  local file = io.open("LuaUI/Widgets/wtf_config.txt", "w")
+  local file = io.open("LuaUI/Widgets/"..WIDGET_NAME.."_config.txt", "w")
   if not file then
     Echo("["..WIDGET_NAME.."] Failed to save config.")
     return
   end
 
-  file:write("enableBuildOrders = ", tostring(enableBuildOrders), "\n")
+  --file:write("enableBuildOrders = ", tostring(enableBuildOrders), "\n")
   file:write("windowX = ", myUI.x,        "\n")
   file:write("windowY = ", myUI.y, "\n")
 
@@ -741,7 +735,7 @@ local function SaveUserPreferences()
 end
 
 local function LoadUserPreferences()
-  local path = "LuaUI/Widgets/wtf_config.txt"
+  local path = "LuaUI/Widgets/"..WIDGET_NAME.."_config.txt"
   local chunk = loadfile(path)
   if not chunk then
     Echo("["..WIDGET_NAME.."] No config file found.")
@@ -752,7 +746,7 @@ local function LoadUserPreferences()
   setfenv(chunk, env)
   chunk()
 
-  enableBuildOrders        = env.enableBuildOrders ~= false
+  --enableBuildOrders        = env.enableBuildOrders ~= false
   windowX                  = env.windowX or windowX
   windowY                  = env.windowY or windowY
 
@@ -1389,8 +1383,9 @@ end
 
 
 local reclaimOrder = false
+local toBeReclaimed = {}
 
-local function updateWorker(unitid, canCallReclaim)
+local function updateWorker(unitid)
   local entry = buildOrder[unitid]
   if not entry then return end
 
@@ -1405,17 +1400,15 @@ local function updateWorker(unitid, canCallReclaim)
         break
       else
         local nextOrder = queue[1]
-        local hits = findIntersectingEraseables(entry, nextOrder.x, nextOrder.z, unitid)
-        if hits and #hits > 0 then
-            if not canCallReclaim then break end
-
+        local hits = findIntersectingUnits(entry, nextOrder.x, nextOrder.z, unitid)
+        if next(hits) then -- check if hits is empty
             local removeNext = false
-            for i, hit in ipairs(hits) do
+            for _, hitUnitDefId in pairs(hits) do
                 -- Cancel queue item if a blocker:
                 --    is not eraseable
                 --    is the same unitDef as the one being built
                 --    if blocker and unit are nanos, but blocker is a higher tier (if a unit is not a nano, i give it a high "tier" (100) just to pass the test over any nano)
-                if not ERASEABLE_LOOKUP[hit.unitDefId] or hit.unitDefId == entry.buildDef.id or ((BUILDABLE_NANO_TIER[entry.buildDef.id] or 100) - (BUILDABLE_NANO_TIER[hit.unitDefId] or 0)) <= 0 then
+                if not ERASEABLE_LOOKUP[hitUnitDefId] or hitUnitDefId == entry.buildDef.id or ((BUILDABLE_NANO_TIER[entry.buildDef.id] or 100) - (BUILDABLE_NANO_TIER[hitUnitDefId] or 0)) <= 0 then
                     removeNext = true
                     break
                 end
@@ -1423,7 +1416,10 @@ local function updateWorker(unitid, canCallReclaim)
             if removeNext then
               table.remove(queue, 1)   -- drop the queue element, osme block cannot be reclaimed
             else
-              reclaimHitsImmediate(hits)
+              for hitUnitID, _ in pairs(hits) do
+                toBeReclaimed[hitUnitID] = true
+              end
+              --reclaimHitsImmediate(hits)
               reclaimOrder = false
               break
             end
@@ -1437,6 +1433,8 @@ local function updateWorker(unitid, canCallReclaim)
         end
       end
     end
+  else
+    
   end
 end
 
@@ -1447,31 +1445,34 @@ function widget:Update(dt)
 	  myUI:Hover(mx, my)
 	end
   
-  reclaimOrder = true
   for unitid, entry in pairs(buildOrder) do
     if entry.currentjob and entry.currentjob ~= -1 then
       --worker might yolo its job
-      local curHealth, maxHealth, _, _ = GetUnitHealth(entry.currentjob)
-      if curHealth and maxHealth then
-        local percentage = curHealth / maxHealth
-        if percentage >= entry.yoloplace then
-          table.remove(entry.queue, 1)   -- drop the queue element, and yolo the next building
-          entry.currentjob = nil
-          updateWorker(unitidm, reclaimOrder)
-          --Echo("["..WIDGET_NAME.."] Unit "..unitid.." yoloing its way to progress!")
-        end
+      local _, _, _, _, buildProgress = GetUnitHealth(entry.currentjob)
+      if buildProgress and buildProgress >= entry.yoloplace then
+        table.remove(entry.queue, 1)   -- drop the queue element, and yolo the next building
+        entry.currentjob = nil
+        updateWorker(unitidm)
+        Echo("["..WIDGET_NAME.."] Unit "..unitid.." yoloing its way to progress!")
       end
     end
   end
 
-  accumulator = accumulator + dt
-  if accumulator < 0.5 then return end
-  accumulator = accumulator - 0.5
-  
-
   for unitid, _ in pairs(buildOrder) do
     updateWorker(unitid, reclaimOrder)
   end
+
+  accumulator = accumulator + dt
+  if accumulator > 0.5 then
+    accumulator = accumulator - 0.5
+    
+    if next(toBeReclaimed)  then
+      reclaimHitsImmediate(toBeReclaimed)
+      toBeReclaimed = {}
+    end
+  end
+
+
 end
 
 
@@ -1512,7 +1513,6 @@ function DrawLineBetweenPoints(x1, y1, z1, x2, y2, z2)
     gl.Color(1, 1, 1, 1)
     gl.PopAttrib()
 end
-
 
 function widget:DrawWorld()
   ensureCircleOffsets()
@@ -1722,7 +1722,6 @@ function widget:UnitTaken(unitID, unitDefID, unitTeam, newTeam)
     end
 end
 
--- commands that should cancel automation
 local CANCEL_CMDS = {}
 local CANCEL_CMD_NAMES = { "MOVE", "STOP", "FIGHT", "ATTACK", "PATROL", "GUARD", "RECLAIM", "LOAD_ONTO", "LOAD_UNITS", "WAIT" }
 for _, name in ipairs(CANCEL_CMD_NAMES) do
@@ -1773,7 +1772,6 @@ function widget:CommandNotify(cmdID, cmdParams, cmdOptions)
       shouldCancel = true
   end
 
-  -- if the player queued the command with shift, don't cancel automation
   if shouldCancel and not optsHasShift(cmdOptions) then
       local sel = Spring.GetSelectedUnits() or {}
       for _, uid in ipairs(sel) do
@@ -1796,7 +1794,7 @@ end
 
 function widget:Initialize()
  -- if Spring.GetSpectatingState() then
---		widgetHandler:RemoveWidget() -- Don't draw when spectating
+--		widgetHandler:RemoveWidget()
 	--	return
 --	end
   localTeam = GetLocalTeamID()
