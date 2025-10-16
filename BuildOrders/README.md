@@ -8,7 +8,14 @@ This widget stablishes a mechanism of BuildOrders which will take control of con
 
   ![example](https://github.com/noryon/BARWidgets/blob/main/BuildOrders/images/showcase.gif)
 
+### HOW TO USE
+
+Open the code and read the "WIDGET DESCRIPTION" thing right on the beginning of the code. You can also hover over the "DON'T PANIC" label while runing the widget in game.
+
 ### DISCLAIMERS
+This widget might use a lot of RAM (by widgets standards), it all depends on the amount of units being built and nanos availabe. I just encouter problems in extreme stress tests (hundreds on nanos with huge range trying to attend dozens of requests). BAR Engine has a cleanup treshold of lua memory at 1.2GB, which is shared among all your widgets so: you might encounter a "cleanup sttuter", depending on your use case and which other widgets you have running.
+
+This widget is meant for very specific cases, where you want to construct something even if its blocked. Just enabled it when you really need this functionality.
 
 > ⚠️ This widget **might use file reading and writing** from your computer for saving/loading widget config. For clarity:
 > - The Spring Engine **does not allow a widget to access files outside the widget directory** for obvious security reasons.
