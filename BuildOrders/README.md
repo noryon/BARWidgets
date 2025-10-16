@@ -18,9 +18,9 @@ This widget is meant for very specific cases, where you want to construct someth
 
 *Technical disclaimer*: No one has yet commented on any performance issues during gameplay. Performance all depends on the amount of units being built and nanos availabe. I just encouter problems in extreme stress tests (hundreds on nanos with unreallistic range trying to attend dozens of requests). BAR Engine has a cleanup threshold of lua memory at 1.2GB, which is shared among all your widgets so: you may encounter a "cleanup sttuter", depending on your use case and which other widgets you have running.
 
-> ⚠️ This widget **might use file reading and writing** from your computer for saving/loading widget config. For clarity:
+> ⚠️ This widget **might use file reading and writing** from your computer. For clarity:
 > - The Spring Engine **does not allow a widget to access files outside the widget directory** for obvious security reasons.
-> - Performance wise, disk will be used only when a file is writen or read to save layouts and this widget configuration.
+> - Performance wise, disk will be used only to save/load this widget configuration in a "build orders_config.txt".
 
 > This was made with **AI assistance**, if you think this is unholy, don't use this widget.
 
