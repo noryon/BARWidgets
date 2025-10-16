@@ -22,7 +22,7 @@ local WIDGET_DESC = [[
   --You can hold Shift to queue units of the same type (trying to enqueue different buildings will cause it to ignore the previous build orders)
   --A constructor cannot reclaim itself with its own build order (although other worker might call to reclaim another blocking worker)
   --This works with HOLO PLACE; build orders will proceed once reach the HOLO-PLACE target
-  --Construction turrets cannot erase turrets of the same tier, or a tier above.
+  --Construction turrets cannot erase turrets of the same or tiers above.
   ]]
 
 function widget:GetInfo()
@@ -38,6 +38,7 @@ function widget:GetInfo()
 end
 
 local UI = true
+local reclaimCallDelay = 1 --how many seconds between reclaim calls
 
 local PRIORITY = {
   --EFUS
@@ -1317,7 +1318,7 @@ function widget:MouseRelease(mx, my, button)
     end
     
     local workerCount = #allowedBuilders
-    if jobsToDo < workerCount then --if there is more workers than builders, send exceeding works to helpers
+    if jobsToDo < workerCount then --if there is more workers than JOBS, send exceeding works to helpers
       local transfer = workerCount - jobsToDo
       for i = 1, transfer do
         helpers[#helpers + 1] = allowedBuilders[1]
@@ -1381,15 +1382,23 @@ function widget:MouseMove(x, y, dx, dy, button)
   end
 end
 
-
-local reclaimOrder = false
 local toBeReclaimed = {}
 
-local function updateWorker(unitid)
-  local entry = buildOrder[unitid]
+local function updateWorker(unitid, entry)
   if not entry then return end
 
   local queue = entry.queue
+
+  if entry.currentjob and entry.currentjob ~= -1 then
+    --worker might yolo its job
+    local _, _, _, _, buildProgress = GetUnitHealth(entry.currentjob)
+    if buildProgress and buildProgress >= entry.yoloplace then
+      table.remove(entry.queue, 1)   -- drop the queue element, and yolo the next building
+      entry.currentjob = nil
+      Echo("["..WIDGET_NAME.."] Unit "..unitid.." yoloing its way to progress!")
+    end
+  end
+
 
   --search next job:
   if not entry.currentjob then
@@ -1419,8 +1428,6 @@ local function updateWorker(unitid)
               for hitUnitID, _ in pairs(hits) do
                 toBeReclaimed[hitUnitID] = true
               end
-              --reclaimHitsImmediate(hits)
-              reclaimOrder = false
               break
             end
         elseif entry.currentjob ~= -1 then
@@ -1438,6 +1445,10 @@ local function updateWorker(unitid)
   end
 end
 
+--[[
+  update all worker, they will mark everything to be reclaimed on the same list, so further on the update I can reclaim everything at once.
+  buildorders will regiester the interest to reclaim something on the "tobereclaimed" set. The widget will call reclaim base on reclaimCallDelay
+]]
 function widget:Update(dt)
   if myUI then
 	  currentToolTip = nil
@@ -1445,34 +1456,17 @@ function widget:Update(dt)
 	  myUI:Hover(mx, my)
 	end
   
+  --update all workers
   for unitid, entry in pairs(buildOrder) do
-    if entry.currentjob and entry.currentjob ~= -1 then
-      --worker might yolo its job
-      local _, _, _, _, buildProgress = GetUnitHealth(entry.currentjob)
-      if buildProgress and buildProgress >= entry.yoloplace then
-        table.remove(entry.queue, 1)   -- drop the queue element, and yolo the next building
-        entry.currentjob = nil
-        updateWorker(unitidm)
-        Echo("["..WIDGET_NAME.."] Unit "..unitid.." yoloing its way to progress!")
-      end
-    end
-  end
-
-  for unitid, _ in pairs(buildOrder) do
-    updateWorker(unitid, reclaimOrder)
+    updateWorker(unitid, entry)
   end
 
   accumulator = accumulator + dt
-  if accumulator > 0.5 then
-    accumulator = accumulator - 0.5
-    
-    if next(toBeReclaimed)  then
-      reclaimHitsImmediate(toBeReclaimed)
-      toBeReclaimed = {}
-    end
+  if accumulator > reclaimCallDelay and next(toBeReclaimed) then -- one second delayt between reclaim calls; this is good when reclaim are competing for turrets, but not very good when there are orders using other different turrets
+    accumulator = 0
+    reclaimHitsImmediate(toBeReclaimed)
+    toBeReclaimed = {}
   end
-
-
 end
 
 
@@ -1679,7 +1673,7 @@ function widget:UnitFinished(unitID, unitDefID, unitTeam)
         if entry.currentjob == unitID then
             table.remove(entry.queue, 1) --finished a job
             entry.currentjob = nil
-            updateWorker(builderID, true)
+            updateWorker(builderID, entry)
             break
         end
     end
