@@ -10,6 +10,7 @@ local WIDGET_DESC = [[
 
   BuildOrders will try to make sure a priority building is built where you place them, that means:
   -Priority unit will call reclaim on everything blocking its path that is declared on the ERASEABLE list.
+   The reclaim call will use construction turret at range to reclaim blocking units. If theres no turrets in range it will stall.
   -It will skip the construction of units that is blocked by non-eraseable units
   -Construction of non priority unit will be handled normally by the engine
   -If a priority unit is destroyed during construction before it reachs its YOLO-PLACE percentage, the BuildOrder will try to assign new
@@ -685,7 +686,7 @@ local function findIntersectingUnits(buildOrder, wx, wz, ignoreUnit)
   local halfX, halfZ = buildOrder.halfX - HALF_TILE_SIZE, buildOrder.halfZ - HALF_TILE_SIZE
   local hits = {} -- structure: [id] = unitDefId
   for _, uid in ipairs(candidates) do
-    if GetUnitTeam(uid) == localTeam and uid ~= ignoreUnit then
+    if uid ~= ignoreUnit then
       local ux, uy, uz = GetUnitPosition(uid)
       if ux then
         local unitDefID = GetUnitDefID(uid)
@@ -1046,7 +1047,7 @@ local function MakeWindow(params)
         text = "Close Widget",
         onClick = params.onClose
     }
-    window.closeButton = closeButton
+    window.closeButton = nil
 
     -- DRAW
     function window:Draw()
@@ -1068,10 +1069,11 @@ local function MakeWindow(params)
         glText(self.title, self.x + 5, self.y - titleBarHeight + 7, self.fontSize, "")
 
         -- Close button
-        self.closeButton.x = self.x + self.width - 104
-        self.closeButton.y = self.y - titleBarHeight + 4
-        self.closeButton:Draw()
-
+        if self.closeButton then
+          self.closeButton.x = self.x + self.width - 104
+          self.closeButton.y = self.y - titleBarHeight + 4
+          self.closeButton:Draw()
+        end
         -- Draw content below title bar
         if self.content then
             self.content.x = self.x
@@ -1117,14 +1119,14 @@ local function MakeWindow(params)
 
     -- HOVER
     function window:Hover(mx, my)
-        if closeButton:Hover(mx, my) then return true end
+        if self.closeButton and closeButton:Hover(mx, my) then return true end
         if self.content then return self.content:Hover(mx, my) end
         return false
     end
 
     -- MOUSE PRESS
     function window:MousePress(mx, my, button)
-        if self.closeButton:MousePress(mx, my, button) then
+        if self.closeButton and self.closeButton:MousePress(mx, my, button) then
             return true
         elseif mx >= self.x and mx <= self.x + self.width and
                my <= self.y and my >= self.y - titleBarHeight then
@@ -1168,6 +1170,7 @@ local function setJobList(unitID, placements, startIdx, endIdx, shift)
   else
     clearUnitCommands(unitID)
 
+    --Create a new build order
     buildOrder[unitID] = { -- hmm i probably can cache placements data on every unitid here, and create work groups that can assume other jobs when complete. But not now
       buildDef     = placements.buildDef,
       halfX        = placements.halfX,
@@ -1389,59 +1392,53 @@ local function updateWorker(unitid, entry)
 
   local queue = entry.queue
 
+  --worker might yolo its jobzb
   if entry.currentjob and entry.currentjob ~= -1 then
-    --worker might yolo its job
     local _, _, _, _, buildProgress = GetUnitHealth(entry.currentjob)
     if buildProgress and buildProgress >= entry.yoloplace then
       table.remove(entry.queue, 1)   -- drop the queue element, and yolo the next building
       entry.currentjob = nil
-      Echo("["..WIDGET_NAME.."] Unit "..unitid.." yoloing its way to progress!")
+      --Echo("["..WIDGET_NAME.."] Unit "..unitid.." yoloing its way to progress!")
     end
   end
 
 
   --search next job:
   if not entry.currentjob then
-    for i = 1, 10 do --try up to 10 jobs
-      if not queue or #queue == 0 then
-        buildOrder[unitid] = nil
-        Echo("["..WIDGET_NAME.."] UnitID " .. tostring(unitid) .. " finished build queue")
-        break
-      else
-        local nextOrder = queue[1]
-        local hits = findIntersectingUnits(entry, nextOrder.x, nextOrder.z, unitid)
-        if next(hits) then -- check if hits is empty
-            local removeNext = false
-            for _, hitUnitDefId in pairs(hits) do
-                -- Cancel queue item if a blocker:
-                --    is not eraseable
-                --    is the same unitDef as the one being built
-                --    if blocker and unit are nanos, but blocker is a higher tier (if a unit is not a nano, i give it a high "tier" (100) just to pass the test over any nano)
-                if not ERASEABLE_LOOKUP[hitUnitDefId] or hitUnitDefId == entry.buildDef.id or ((BUILDABLE_NANO_TIER[entry.buildDef.id] or 100) - (BUILDABLE_NANO_TIER[hitUnitDefId] or 0)) <= 0 then
-                    removeNext = true
-                    break
-                end
-            end
-            if removeNext then
-              table.remove(queue, 1)   -- drop the queue element, osme block cannot be reclaimed
-            else
-              for hitUnitID, _ in pairs(hits) do
-                toBeReclaimed[hitUnitID] = true
+    if not queue or #queue == 0 then
+      buildOrder[unitid] = nil
+      Echo("["..WIDGET_NAME.."] UnitID " .. tostring(unitid) .. " finished build queue")
+    else
+      local nextOrder = queue[1]
+      local hits = findIntersectingUnits(entry, nextOrder.x, nextOrder.z, unitid)
+      if next(hits) then -- check if hits is empty
+          local removeNext = false
+          for hitUnitId, hitUnitDefId in pairs(hits) do
+              -- Cancel queue item if a blocker:
+              --    is not eraseable
+              --    is the same unitDef as the one being built
+              --    if blocker and unit are nanos, but blocker have the same or higher tier (if a unit is not a nano, i give it a high "tier" (100) just to pass the test over any nano)
+              --    if blocker is from another player
+              if not ERASEABLE_LOOKUP[hitUnitDefId] or hitUnitDefId == entry.buildDef.id or ((BUILDABLE_NANO_TIER[entry.buildDef.id] or 100) - (BUILDABLE_NANO_TIER[hitUnitDefId] or 0)) <= 0 or GetUnitTeam(hitUnitId) ~= localTeam then
+                  removeNext = true
+                  break
               end
-              break
+          end
+          if removeNext then
+            table.remove(queue, 1)   -- drop the queue element, osme block cannot be reclaimed
+          else
+            for hitUnitID, _ in pairs(hits) do
+              toBeReclaimed[hitUnitID] = true
             end
-        elseif entry.currentjob ~= -1 then
-          -- Remove the next order from the queue
-          entry.currentjob = -1 --place holder so the widget does not call the order again next update
-          local terrainY = Spring.GetGroundHeight(nextOrder.x, nextOrder.z)
-          Spring.GiveOrderToUnit(unitid, -entry.buildDef.id, {nextOrder.x, terrainY, nextOrder.z, entry.facing}, {shift = false})
-          sentCommands = sentCommands + 1
-          break
-        end
+          end
+      elseif entry.currentjob ~= -1 then
+        -- Remove the next order from the queue
+        entry.currentjob = -1 --place holder so the widget does not call the order again next update
+        local terrainY = Spring.GetGroundHeight(nextOrder.x, nextOrder.z)
+        Spring.GiveOrderToUnit(unitid, -entry.buildDef.id, {nextOrder.x, terrainY, nextOrder.z, entry.facing}, {shift = false})
+        sentCommands = sentCommands + 1
       end
     end
-  else
-    
   end
 end
 
@@ -1462,7 +1459,7 @@ function widget:Update(dt)
   end
 
   accumulator = accumulator + dt
-  if accumulator > reclaimCallDelay and next(toBeReclaimed) then -- one second delayt between reclaim calls; this is good when reclaim are competing for turrets, but not very good when there are orders using other different turrets
+  if accumulator > reclaimCallDelay and next(toBeReclaimed) then -- delay between reclaim calls
     accumulator = 0
     reclaimHitsImmediate(toBeReclaimed)
     toBeReclaimed = {}
@@ -1521,6 +1518,22 @@ function widget:DrawWorld()
     if order then
       local ux, uy, uz = SpringGetUnitPosition(builderID)
       if ux then
+       --[[
+        gl.Color(1,1,1,1)
+        gl.Texture("#"..order.buildDef.id)
+        local height = (Spring.GetUnitHeight(builderID) or 20) + 15 -- offset above turret
+        gl.PushMatrix()
+            gl.Translate(ux+18, uy + height, uz-18)
+            gl.Billboard() -- make it always face the camera
+            local size = 16 -- icon size in world units
+            gl.TexRect(-size, -size, size, size)
+
+            local text = "Builder " .. builderID
+            gl.Color(1, 1, 0, 1) -- yellow text
+            gl.Text(text, 0, -size - 8, 16, "oc") -- (string, x, y, size, options)
+        gl.PopMatrix()
+
+]]
         local color = lerpColor(full, empty, order.yoloplace)
         gl.Color(color)
         local radius = 35
@@ -1531,6 +1544,8 @@ function widget:DrawWorld()
             gl_Vertex(ux + radius * off[1], oy, uz + radius * off[2])
           end
         end)
+
+
         if order.currentjob and order.currentjob ~= -1 then
           local tx, ty, tz = SpringGetUnitPosition(order.currentjob)
           DrawLineBetweenPoints(ux, uy, uz, tx, ty, tz)
@@ -1639,23 +1654,6 @@ end
 -- remove any entry for a builder that died or changed team
 local function removeBuildOrder(builderID)
     buildOrder[builderID] = nil
-end
-
-local function assignBuildQueue(builderID, placements)
-    buildOrder[builderID] = {
-        buildDef = placements.buildDef,
-        halfX = placements.halfX,
-        halfZ = placements.halfZ,
-        currentjob = nil,
-        queue = {}
-    }
-    for _, pos in ipairs(placements.positions) do
-        buildOrder[builderID].queue[#buildOrder[builderID].queue + 1] = {
-            x = pos.x,
-            z = pos.z,
-            unitDefID = placements.buildDef.id
-        }
-    end
 end
 
 function widget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
@@ -1891,5 +1889,9 @@ function widget:DrawScreen()
 
     myUI:Draw()
   end
+end
 
+function widget:Shutdown()
+  SaveUserPreferences()
+	Echo("["..WIDGET_NAME.."] Closed")
 end
