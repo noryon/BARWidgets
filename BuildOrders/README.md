@@ -26,18 +26,6 @@ This widget is meant for very specific cases, where you want to construct someth
 
 > This was made with **AI assistance**, if you think this is unholy, don't use this widget.
 
-### HOW TO INSTALL A WIDGET?
-It is very simple, you just need a folder named Widgets inside your game folder, as such:
-
-```[...]\Beyond-All-Reason\data\LuaUI\Widgets``` 
-
-(one fast way to reach the root folder is to just click with the right mouse button on your game desktop icon and go "Open folder", then you create the LuaUI and Widget folder if needed.)
-
-To install a widget you just copy the .lua file inside the Widgets folder.
-In game you can enable/disable installed widgets by name on the widget menu (press [F11] inside a game).
-
-If you installed a widget while your game is open, it may not be recognized by the system, you need to close and open the game again or use the command ```/luaui reload```
-
 ### OUTRO
 Huge thanks to Fast for testing and sharing his ideas about this widget.
 
