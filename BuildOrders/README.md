@@ -10,11 +10,11 @@ This widget stablishes a mechanism of BuildOrders which will take control of con
 
 ### HOW TO USE
 
-Open the code and read the "WIDGET DESCRIPTION" thing right on the beginning of the code. You can also hover over the "DON'T PANIC" label while runing the widget in game.
+Open the code and read the "WIDGET DESCRIPTION" thing right on the beginning of the code. You can also hover over the "DON'T PANIC" label while running the widget in game.
 
 ### DISCLAIMERS
 
-This is a work in progress, and there know issues of build orders stoping for no aparent reason.
+This is a work in progress, and there know issues of build orders stoping for no aparent reason. About that, there are non obvious non-bug reasons: since BuildOrders is not a native game command, a constructor unit waiting for something to be reclaimed will appear as idle in the game, which you might unintedend select to do another stuff, causing the build order to be canceled.
 
 This widget is meant for very specific cases, where you want to construct something even if its blocked. Just enabled it when you really need this functionality.
 
