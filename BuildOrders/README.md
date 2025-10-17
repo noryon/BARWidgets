@@ -4,7 +4,7 @@
   <img src="images/gui.png" width="400" alt="GUI">
 </p>
 
-This widget stablishes a mechanism of BuildOrders which will take control of constructors units to force the construction of specific units. The code uses two list of unitDefs names: PRIORITY and ERASEABLE. Once enabled, this widget will take control of PRIORITY units, and automatically call reclaim on any ERASEABLE units blocking the construction.
+This widget stablishes a mechanism of BuildOrders which will take control of constructors units to force the construction of specific units. The code uses two list of unitDefs names: PRIORITY and ERASEABLE. Once enabled, this widget will take control of construction of PRIORITY units, and automatically call nearby nanos to reclaim on any ERASEABLE units blocking the construction.
 
   ![example](https://github.com/noryon/BARWidgets/blob/main/BuildOrders/images/showcase.gif)
 
@@ -13,6 +13,8 @@ This widget stablishes a mechanism of BuildOrders which will take control of con
 Open the code and read the "WIDGET DESCRIPTION" thing right on the beginning of the code. You can also hover over the "DON'T PANIC" label while runing the widget in game.
 
 ### DISCLAIMERS
+
+This is a work in progress, and there know issues of build orders stoping for no aparent reason.
 
 This widget is meant for very specific cases, where you want to construct something even if its blocked. Just enabled it when you really need this functionality.
 
