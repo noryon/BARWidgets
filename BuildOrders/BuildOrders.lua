@@ -22,8 +22,8 @@ local WIDGET_DESC = [[
   --Construction Turrets are both priority and eraseable by default
   --You can hold Shift to queue units of the same type (trying to enqueue different buildings will cause it to ignore the previous build orders)
   --A constructor cannot reclaim itself with its own build order (although other worker might call to reclaim another blocking worker)
-  --This works with HOLO PLACE; build orders will proceed once reach the HOLO-PLACE target
-  --Construction turrets cannot erase turrets of the same or tiers above.
+  --This works with HOLO PLACE; build orders will proceed once reach the HOLO-PLACE value
+  --Construction turrets cannot erase turrets of the same or higher tiers.
   ]]
 
 function widget:GetInfo()
@@ -225,6 +225,7 @@ local GetModKeyState       = Spring.GetModKeyState
 local GetKeyState          = Spring.GetKeyState
 local GetSelectedUnits     = Spring.GetSelectedUnits
 local GiveOrderToUnitArray = Spring.GiveOrderToUnitArray
+local GetGameFrame         = Spring.GetGameFrame
 local gl                   = gl
 local UnitDefs             = UnitDefs
 local UnitDefNames         = UnitDefNames
@@ -1402,6 +1403,41 @@ local function updateWorker(unitid, entry)
     end
   end
 
+  local now = GetGameFrame()
+
+  local function checkAndClearSpace()
+    local nextOrder = queue[1]
+    local hits = findIntersectingUnits(entry, nextOrder.x, nextOrder.z, unitid)
+    if next(hits) then -- check if hits has anything
+        local removeNext = false
+        for hitUnitId, hitUnitDefId in pairs(hits) do
+            -- Cancel queue item if a blocker:
+            --    is not eraseable
+            --    is the same unitDef as the one being built
+            --    if blocker and unit are nanos, but blocker have the same or higher tier (if a unit is not a nano, i give it a high "tier" (100) just to pass the test over any nano)
+            --    if blocker is from another player
+            if not ERASEABLE_LOOKUP[hitUnitDefId] or hitUnitDefId == entry.buildDef.id or ((BUILDABLE_NANO_TIER[entry.buildDef.id] or 100) - (BUILDABLE_NANO_TIER[hitUnitDefId] or 0)) <= 0 or GetUnitTeam(hitUnitId) ~= localTeam then
+                removeNext = true
+                break
+            end
+        end
+        if removeNext then
+          table.remove(queue, 1)   -- drop the queue element, osme block cannot be reclaimed
+        else
+          for hitUnitID, _ in pairs(hits) do
+            toBeReclaimed[hitUnitID] = true
+          end
+        end
+        entry.currentjob = nil
+    elseif entry.currentjob ~= -1 then
+      -- Remove the next order from the queue
+      entry.currentjob = -1 --place holder so the widget does not call the order again next update
+      entry.checktime = now + 30 * 5
+      local terrainY = Spring.GetGroundHeight(nextOrder.x, nextOrder.z)
+      Spring.GiveOrderToUnit(unitid, -entry.buildDef.id, {nextOrder.x, terrainY, nextOrder.z, entry.facing}, {shift = false})
+      sentCommands = sentCommands + 1
+    end
+  end
 
   --search next job:
   if not entry.currentjob then
@@ -1409,36 +1445,10 @@ local function updateWorker(unitid, entry)
       buildOrder[unitid] = nil
       Echo("["..WIDGET_NAME.."] UnitID " .. tostring(unitid) .. " finished build queue")
     else
-      local nextOrder = queue[1]
-      local hits = findIntersectingUnits(entry, nextOrder.x, nextOrder.z, unitid)
-      if next(hits) then -- check if hits is empty
-          local removeNext = false
-          for hitUnitId, hitUnitDefId in pairs(hits) do
-              -- Cancel queue item if a blocker:
-              --    is not eraseable
-              --    is the same unitDef as the one being built
-              --    if blocker and unit are nanos, but blocker have the same or higher tier (if a unit is not a nano, i give it a high "tier" (100) just to pass the test over any nano)
-              --    if blocker is from another player
-              if not ERASEABLE_LOOKUP[hitUnitDefId] or hitUnitDefId == entry.buildDef.id or ((BUILDABLE_NANO_TIER[entry.buildDef.id] or 100) - (BUILDABLE_NANO_TIER[hitUnitDefId] or 0)) <= 0 or GetUnitTeam(hitUnitId) ~= localTeam then
-                  removeNext = true
-                  break
-              end
-          end
-          if removeNext then
-            table.remove(queue, 1)   -- drop the queue element, osme block cannot be reclaimed
-          else
-            for hitUnitID, _ in pairs(hits) do
-              toBeReclaimed[hitUnitID] = true
-            end
-          end
-      elseif entry.currentjob ~= -1 then
-        -- Remove the next order from the queue
-        entry.currentjob = -1 --place holder so the widget does not call the order again next update
-        local terrainY = Spring.GetGroundHeight(nextOrder.x, nextOrder.z)
-        Spring.GiveOrderToUnit(unitid, -entry.buildDef.id, {nextOrder.x, terrainY, nextOrder.z, entry.facing}, {shift = false})
-        sentCommands = sentCommands + 1
-      end
+      checkAndClearSpace()
     end
+  elseif entry.currentjob == -1 and (entry.checktime or 0) < now then
+    checkAndClearSpace()
   end
 end
 
