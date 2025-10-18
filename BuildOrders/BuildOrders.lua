@@ -1843,12 +1843,12 @@ function widget:Initialize()
   uiContentBox:Add(MakeCheckbox({
     text = "Enable Build Order",
     checked = enableBuildOrders,
-    tooltip = "Enable this widget to intercept and manage building commands.\nDisabling will terminate all active build orders!",
+    tooltip = "Enable this widget to intercept and manage building commands.\nActive build order will keep running!",
     fontSize = 20,
     bgColor = {0,0,0,0},
     onToggle = function(state) 
       enableBuildOrders = not enableBuildOrders
-      if not enableBuildOrders then buildOrder = {}  end
+      --if not enableBuildOrders then buildOrder = {}  end
       Echo("["..WIDGET_NAME.."] Enable build orders: " .. (enableBuildOrders and "ON" or "OFF"))
     end
   }))
