@@ -101,6 +101,11 @@ BUILDABLE_NANO_TIER[UnitDefNames["armnanotct3"].id] = 3
 BUILDABLE_NANO_TIER[UnitDefNames["cornanotct3"].id] = 3
 BUILDABLE_NANO_TIER[UnitDefNames["legnanotct3"].id] = 3
 
+local BASE_BUILDERS = {}
+BASE_BUILDERS[UnitDefNames["correspawn"].id] = true
+BASE_BUILDERS[UnitDefNames["armrespawn"].id] = true
+BASE_BUILDERS[UnitDefNames["legnanotcbase"].id] = true
+
 local ERASEABLE = {
 
   --buildable nanos
@@ -693,7 +698,8 @@ local function findIntersectingUnits(buildOrder, wx, wz, ignoreUnit)
         local unitDefID = GetUnitDefID(uid)
         local uDef = UnitDefs[unitDefID]
 
-        if uDef and not uDef.canFly then --ignore flying units, i can build where they are
+        if uDef and not uDef.canFly and (not BASE_BUILDERS[unitDefID]) then --ignore flying units, i can build where they are
+                                                                      --ignore base builders, since they dont have collision (would be nice to have a dynamic flag, but i didn't find one yet)
           
           local xsize = uDef.xsize
           local zsize = uDef.zsize
@@ -1536,13 +1542,12 @@ function widget:DrawWorld()
             gl.Translate(ux+18, uy + height, uz-18)
             gl.Billboard() -- make it always face the camera
             local size = 16 -- icon size in world units
-            gl.TexRect(-size, -size, size, size)
+           -- gl.TexRect(-size, -size, size, size)
 
-            local text = "Builder " .. builderID
+            local text = "Job: "..order.currentjob.."\nQueue: "..(#order.queue)
             gl.Color(1, 1, 0, 1) -- yellow text
             gl.Text(text, 0, -size - 8, 16, "oc") -- (string, x, y, size, options)
         gl.PopMatrix()
-
 ]]
         local color = lerpColor(full, empty, order.yoloplace)
         gl.Color(color)
@@ -1843,7 +1848,7 @@ function widget:Initialize()
   uiContentBox:Add(MakeCheckbox({
     text = "Enable Build Order",
     checked = enableBuildOrders,
-    tooltip = "Enable this widget to intercept and manage building commands.\nActive build order will keep running!",
+    tooltip = "Enable this widget to intercept and manage building commands.\nActive build orders will keep running!",
     fontSize = 20,
     bgColor = {0,0,0,0},
     onToggle = function(state) 
@@ -1853,9 +1858,9 @@ function widget:Initialize()
     end
   }))
 
-  uiContentBox:Add(uiNumOrdersLabel)
+  --uiContentBox:Add(uiNumOrdersLabel)
   uiContentBox:Add(uiQueuSizeLabel)
-  uiContentBox:Add(uiNumJobsLabel)
+  --uiContentBox:Add(uiNumJobsLabel)
   --[[uiContentBox:Add(MakeButton({
     text = "Invisible Mode",
     tooltip = "Enable Build Orders and disable this widget GUI",
