@@ -1,20 +1,20 @@
 local WIDGET_NAME = "Build Orders"
 
 local WIDGET_DESC = [[
-  This widget stablishes a mechanism of BuildOrders which will take control of constructors units to force the construction of specific buildings.
+  This widget stablishes a mechanism of BuildOrders which will take control of constructor units to force the construction of specific buildings.
   You define two lists: 
       - PRIORITY list have units that can call for reclaim when its build space is blocked.
       - ERASEABLE list define which units this widget can reclaim to give space for priority units.
 
-  Declare which units are priority and which units can be erased on the lists on the code as you want; use the UnitDef name
+  Declare which units are priority and which units can be erased on the lists on custom files as you want; use the UnitDef name
 
   BuildOrders will try to make sure a priority building is built where you place them, that means:
   -Priority unit will call reclaim on everything blocking its path that is declared on the ERASEABLE list.
-   The reclaim call will use construction turret at range to reclaim blocking units. If theres no turrets in range it will stall.
+   The reclaim call will use construction turrets at range to reclaim blocking units. <!> If theres no turrets in range it will stall.
   -It will skip the construction of units that is blocked by non-eraseable units
   -Construction of non priority unit will be handled normally by the engine
   -If a priority unit is destroyed during construction before it reachs its YOLO-PLACE percentage, the BuildOrder will try to assign new
-   build commands at the same place
+   build commands at the same place if the REPEAT option is enabled
   
   Some notes:
   --A unit can be both priority and eraseable. 
@@ -41,7 +41,14 @@ end
 local UI = true
 local reclaimCallDelay = 1 --how many seconds between reclaim calls
 
-local PRIORITY = {
+local REPEAT = true
+local DEBUG_MODE = false
+local NOTIFICATIONS = false
+local ALWAYS_DRAW_RENDER_PATH = false
+
+
+
+local DEFAULT_PRIORITY = {
   --EFUS
   "armafust3",
   "legafust3",
@@ -52,7 +59,7 @@ local PRIORITY = {
   "cormmkrt3",
   "legadveconvt3",
 
-  "armapt3",    --dont remember but must be important
+  "armapt3",    --T3 air plants
   "corapt3",
   "legapt3",
 
@@ -67,46 +74,59 @@ local PRIORITY = {
   "leggatet3", --t2 shield
   "corgatet3", 
   "armgatet3",
---[[
-  "armwin", --remove this is a test
-
-  "armfort", --adv wall
-  "corfort",
-  "legforti",]]
 
   --nanos
+  -- T1
   --"armnanotc",
   --"cornanotc",
   --"legnanotc",
-
+  
+  -- T2
   "armnanotct2",
   "cornanotct2",
   "legnanotct2",
   
+  -- T3
   "armnanotct3",
   "cornanotct3",
   "legnanotct3",
 }
 
 local BUILDABLE_NANO_TIER = {}
-BUILDABLE_NANO_TIER[UnitDefNames["armnanotc"].id] = 1
-BUILDABLE_NANO_TIER[UnitDefNames["cornanotc"].id] = 1
-BUILDABLE_NANO_TIER[UnitDefNames["legnanotc"].id] = 1
 
-BUILDABLE_NANO_TIER[UnitDefNames["armnanotct2"].id] = 2
-BUILDABLE_NANO_TIER[UnitDefNames["cornanotct2"].id] = 2
-BUILDABLE_NANO_TIER[UnitDefNames["legnanotct2"].id] = 2
+local function safeAssignNanoTier(name, tier)
+    local ud = UnitDefNames[name]
+    if ud then
+        BUILDABLE_NANO_TIER[ud.id] = tier
+    end
+end
 
-BUILDABLE_NANO_TIER[UnitDefNames["armnanotct3"].id] = 3
-BUILDABLE_NANO_TIER[UnitDefNames["cornanotct3"].id] = 3
-BUILDABLE_NANO_TIER[UnitDefNames["legnanotct3"].id] = 3
+safeAssignNanoTier("armnanotc", 1)
+safeAssignNanoTier("cornanotc", 1)
+safeAssignNanoTier("legnanotc", 1)
 
+safeAssignNanoTier("armnanotct2", 2)
+safeAssignNanoTier("cornanotct2", 2)
+safeAssignNanoTier("legnanotct2", 2)
+
+safeAssignNanoTier("armnanotct3", 3)
+safeAssignNanoTier("cornanotct3", 3)
+safeAssignNanoTier("legnanotct3", 3)
+
+-- Base builders
 local BASE_BUILDERS = {}
-BASE_BUILDERS[UnitDefNames["correspawn"].id] = true
-BASE_BUILDERS[UnitDefNames["armrespawn"].id] = true
-BASE_BUILDERS[UnitDefNames["legnanotcbase"].id] = true
+local function safeAssignBaseBuilder(name)
+    local ud = UnitDefNames[name]
+    if ud then
+        BASE_BUILDERS[ud.id] = true
+    end
+end
 
-local ERASEABLE = {
+safeAssignBaseBuilder("correspawn")
+safeAssignBaseBuilder("armrespawn")
+safeAssignBaseBuilder("legnanotcbase")
+
+local DEFAULT_ERASEABLE = {
 
   --buildable nanos
   "armnanotc",
@@ -125,7 +145,11 @@ local ERASEABLE = {
   "armap",
   "corap",
   "legap",
-  
+
+  "legdeflector", --t1 shield
+  "corgate", 
+  "armgate",
+
   --walls i guess
   "armfort",
   "corfort",
@@ -215,6 +239,9 @@ local ERASEABLE = {
   "legsolar",
 }
 
+local PRIORITY = {}
+local ERASEABLE = {}
+
 local enableBuildOrders        = false
 
 local knownYolos = {} --map [id] = yolo value
@@ -226,6 +253,8 @@ local holoToYolo = {}
       holoToYolo[5] = 0.9
 
 VFS.Include("luaui/Headers/keysym.h.lua")
+local DiffTimers = Spring.DiffTimers
+local GetTimer = Spring.GetTimer
 local GetModKeyState       = Spring.GetModKeyState
 local GetKeyState          = Spring.GetKeyState
 local GetSelectedUnits     = Spring.GetSelectedUnits
@@ -244,7 +273,7 @@ local GetUnitPosition      = Spring.GetUnitPosition
 local GetUnitDefID         = Spring.GetUnitDefID
 local GetUnitTeam          = Spring.GetUnitTeam
 local GetLocalTeamID       = Spring.GetLocalTeamID
-local Echo                 = Spring.Echo
+local SpEcho                 = Spring.Echo
 local GetUnitSeparation    = Spring.GetUnitSeparation
 local GetUnitHealth        = Spring.GetUnitHealth
 local CMD_INSERT           = CMD.INSERT
@@ -259,6 +288,8 @@ local SpringGiveOrderToUnit = Spring.GiveOrderToUnit
 
 local gl = gl
 local glColor = gl.Color
+local PushAttrib = gl.PushAttrib
+local PopAttrib = gl.PopAttrib
 local glRect = gl.Rect
 local glText = gl.Text
 local glGetTextWidth = gl.GetTextWidth
@@ -281,11 +312,6 @@ local HALF_TILE_SIZE = TILE_SIZE / 2 -- to avoid division later :)
 
 local buildOrder = {}                -- [builder id] = {buildDef, halfX, halfZ, currentjob, queue = {x, z}}
 
-
--- speculations
---local buildOrder = {}                -- {unitDef, {x, z}}
---local buildOrder = {}                -- [builderID] = {buildOrder, buildOrder}
-
 --those are maps in form [untiid] = {id, xsize, zsize, xhalf, zhalf, searchRadius, name}
 local PRIORITY_LOOKUP     = {} 
 local ERASEABLE_LOOKUP    = {}
@@ -300,6 +326,98 @@ local biggestSearchRadius = 0 -- biggest search radius among Priority and Erasea
 
 local sentCommands = 0
 
+--
+-- Simple notification cache for widgets
+local Notify = {
+  list = {},                  -- notifications: { msg=..., type=..., t0=... }
+  capacity = 3,               -- max items
+  duration = 8.0,             -- seconds each notification is visible
+  spacing = 2,                -- pixels between lines when drawing
+  fontSize = 16,              -- draw font size
+}
+
+-- color map for types (r,g,b,a)
+local TYPE_COLORS = {
+  success = {0.2, 0.9, 0.2, 1.0},
+  warning = {1.0, 0.7, 0.1, 1.0},
+  fail    = {1.0, 0.2, 0.2, 1.0},
+  info    = {1.0, 1.0, 1.0, 1.0},
+}
+
+-- Add a notification
+function Echo(msg, typ)
+  if not msg then return end
+  SpEcho("["..WIDGET_NAME.."] "..msg)
+
+  if not Notify then return end
+  typ = typ or "info"
+  if not TYPE_COLORS[typ] then typ = "info" end
+
+  local now = GetTimer()
+  -- drop oldest if full
+  if #Notify.list >= Notify.capacity then
+    table.remove(Notify.list, 1)
+  end
+  table.insert(Notify.list, { msg = tostring(msg), type = typ, t0 = now })
+end
+
+-- Remove expired notifications
+function Notify.Update()
+  local now = GetTimer()
+
+  local i = 1
+  while i <= #Notify.list do
+    local n = Notify.list[i]
+    local age = DiffTimers(now, n.t0)
+    if age >= Notify.duration then
+      table.remove(Notify.list, i)
+    else
+      i = i + 1
+    end
+  end
+end
+
+-- Return shallow copy
+function Notify.GetAll()
+  local copy = {}
+  for i = 1, #Notify.list do copy[i] = Notify.list[i] end
+  return copy
+end
+
+-- Draw notifications on screen (newest at top)
+function Notify.DrawScreen(x, y)
+  if #Notify.list == 0 then return end
+  local now = GetTimer()
+  local drawX, drawY = x, y
+
+  PushAttrib(GL.ALL_ATTRIB_BITS)
+  -- iterate from newest to oldest
+  for i = #Notify.list, 1, -1 do
+    local n = Notify.list[i]
+    local age = DiffTimers(now, n.t0)
+    local remaining = math.max(0, Notify.duration - age)
+    local alpha = 1.0
+    local fade = 0.5
+    if remaining < fade then
+      alpha = remaining / fade
+    end
+
+    local col = TYPE_COLORS[n.type] or TYPE_COLORS.info
+    glColor(col[1], col[2], col[3], (col[4] or 1) * alpha)
+
+    local padding = 6
+    local fs = Notify.fontSize
+    local text = n.msg
+
+    -- draw text (white)
+    glText(text, drawX, drawY, fs, "o")
+
+    -- stack downward
+    drawY = drawY - (fs + Notify.spacing + padding*2)
+  end
+  PopAttrib()
+end
+
 
 --GUI STUFF
 local myUI = nil
@@ -309,9 +427,10 @@ local uiNumOrdersLabel
 local uiQueuSizeLabel
 local uiNumJobsLabel
 local uiContentBox
+local uiConfigBox
 
 local function buildLookups(base)
-  dest = {}
+  local dest = {}
   for _, name in ipairs(base) do
     local ud = UnitDefNames[name]
     if ud then
@@ -325,13 +444,13 @@ local function buildLookups(base)
 
       dest[ud.id] = {
         id                 = ud.id,                  -- unitdef id
+        name               = ud.translatedHumanName or ud.name or "Unidentified",                -- name
         xsize              = xsize, zsize = zsize,   -- size  (tiles)
         halfX              = halfw, halfZ = halfh,   --half size (word size)
-        searchRadius       = radius,                 --search radius for broad phase intersection test
-        name               = name                    --name
+        searchRadius       = radius                  --search radius for broad phase intersection test
       }
     else
-      Echo("["..WIDGET_NAME.."] Lookup table construction: could not find unitDef '" .. tostring(name) .. "'") -- should not really happen
+      Echo("Lookup table construction: could not find unitDef '" .. tostring(name) .. "'", "fail") -- should not really happen
     end
   end
   return dest
@@ -371,7 +490,7 @@ end
 local function clearUnitCommands(unitID) 
   buildOrder[unitID] = nil
   pcall(function()
-    GiveOrderToUnitArray({unitID}, CMD_STOP, {}, {}) -- i might use work groups (not sure) that why i'm using array here
+    GiveOrderToUnitArray({unitID}, CMD.STOP, {}, {}) -- i might use work groups (not sure) that why i'm using array here
     sentCommands = sentCommands + 1
   end)
 end
@@ -731,23 +850,108 @@ end
 local function SaveUserPreferences()
   local file = io.open("LuaUI/Widgets/"..WIDGET_NAME.."_config.txt", "w")
   if not file then
-    Echo("["..WIDGET_NAME.."] Failed to save config.")
+    Echo("Failed to save config.", "fail")
     return
   end
 
   --file:write("enableBuildOrders = ", tostring(enableBuildOrders), "\n")
-  file:write("windowX = ", myUI.x,        "\n")
+  file:write("DEBUG_MODE = ", tostring(DEBUG_MODE),"\n")
+  file:write("ALWAYS_DRAW_RENDER_PATH = ", tostring(ALWAYS_DRAW_RENDER_PATH),"\n")
+  file:write("REPEAT = ", tostring(REPEAT),"\n")
+  file:write("NOTIFICATIONS = ", tostring(NOTIFICATIONS),"\n")
+  file:write("windowX = ", myUI.x, "\n")
   file:write("windowY = ", myUI.y, "\n")
 
   file:close()
-  Echo("["..WIDGET_NAME.."] Config saved.")
+  Echo("Config saved.", "success")
+end
+
+local function InitializeList(type)
+    local path = "LuaUI/Widgets/" .. WIDGET_NAME .. "_"..type..".txt"
+    local file = io.open(path, "r")
+
+    if not file then
+        --Echo("No list file found. Using default.")
+        return nil
+    end
+
+    -- Read full file contents
+    local content = file:read("*all")
+    file:close()
+
+    if not content or content == "" then
+        Echo(""..type.." list file empty.", "warning")
+        return nil
+    end
+
+    local parsed = {}
+
+    -- Process each line separately
+    for line in content:gmatch("[^\r\n]+") do
+        line = line:match("^%s*(.-)%s*$") -- trim whitespace
+        if line ~= "" and not line:match("^#") then
+            -- Replace commas with spaces and remove quotes
+            line = line:gsub(",", " "):gsub('"', ""):gsub("'", "")
+            for word in line:gmatch("%S+") do
+                table.insert(parsed, word)
+            end
+        end
+    end
+
+    -- Validate at least one entry
+    if #parsed == 0 then
+        Echo("No valid entries in "..type.." file. Using default.", "warning")
+        return nil
+    end
+
+    Echo("Loaded custom "..type.." list with "..#parsed.." entries.", "success")
+    return parsed
+end
+
+local function InitializePriorityAndEraseables()
+  local userPriority  = InitializeList("PRIORITY")
+  local userEraseable = InitializeList("ERASEABLE")
+  if userPriority == nil then PRIORITY = DEFAULT_PRIORITY else PRIORITY = userPriority end
+  if userEraseable == nil then ERASEABLE = DEFAULT_ERASEABLE else ERASEABLE = userEraseable end
+
+  PRIORITY_LOOKUP = buildLookups(PRIORITY)
+  ERASEABLE_LOOKUP = buildLookups(ERASEABLE)
+end
+
+local function CreateCustomFile(type, list)
+  local path = "LuaUI/Widgets/" .. WIDGET_NAME .. "_"..type..".txt"
+  
+  -- check if it already exists
+  local f = io.open(path, "r")
+  if f then
+    f:close()
+    Echo(""..type.." file already exists, not overwriting.", "warning")
+    return
+  end
+
+  -- write default list
+  local file, err = io.open(path, "w")
+  if not file then
+    Echo("Failed to create "..type.." file: " .. tostring(err), "fail")
+    return
+  end
+
+  file:write("# "..type.." list for ", WIDGET_NAME, "\n")
+  file:write("# One unit name per line, or separate with commas.\n\n")
+
+  for _, unitName in ipairs(list) do
+    file:write(unitName, "\n")
+  end
+
+  file:close()
+  Echo("Created default "..type.." file with "..#list.." entries.", "success")
 end
 
 local function LoadUserPreferences()
   local path = "LuaUI/Widgets/"..WIDGET_NAME.."_config.txt"
   local chunk = loadfile(path)
   if not chunk then
-    Echo("["..WIDGET_NAME.."] No config file found.")
+    Echo("No config file found.", "warning")
     return
   end
 
@@ -755,11 +959,14 @@ local function LoadUserPreferences()
   setfenv(chunk, env)
   chunk()
 
-  --enableBuildOrders        = env.enableBuildOrders ~= false
+  DEBUG_MODE               = env.DEBUG_MODE ~= false
+  ALWAYS_DRAW_RENDER_PATH  = env.ALWAYS_DRAW_RENDER_PATH ~= false
+  REPEAT                   = env.REPEAT ~= false
+  NOTIFICATIONS            = env.NOTIFICATIONS ~= false
   windowX                  = env.windowX or windowX
   windowY                  = env.windowY or windowY
 
-  Echo("["..WIDGET_NAME.."] Config loaded.")
+  Echo("Config loaded.", "success")
 end
 
 local currentToolTip = nil
@@ -985,7 +1192,7 @@ local function MakeCheckbox(params)
   return cb
 end
 
-function lightenColor(color, factor)
+local function lightenColor(color, factor)
     factor = math.max(0, math.min(factor or 0.4, 1)) 
 
     local r = color[1] + (1 - color[1]) * factor
@@ -1003,7 +1210,7 @@ local function MakeButton(params)
   function button:MousePress(mx, my, buttonNum)
     if mx >= self.x and mx <= self.x + self.width and
        my >= self.y and my <= self.y + self.height then
-      self.onClick()
+      self:onClick()
       return true
     end
     return false
@@ -1048,13 +1255,26 @@ local function MakeWindow(params)
     local titleBarHeight = 32
     local padding = 4
 
-    local closeButton = MakeButton{
-        bgColor = {0.6, 0.1, 0.0, 1.0},
+    local configButton = MakeButton{
+        bgColor = {0.2, 0.2, 0.6, 1.0},
         height = titleBarHeight - 8,
-        text = "Close Widget",
-        onClick = params.onClose
+        text = " Open Config ",
+        config = false,
+        onClick = function(self)
+          -- toggle config state
+          self.config = not self.config
+          if self.config then
+            self.text = "Close Config"
+            myUI.content = uiConfigBox
+          else
+            self.text = "Open Config"
+            myUI.content = uiContentBox
+            SaveUserPreferences()
+          end
+        end
     }
-    window.closeButton = nil
+
+    window.closeButton = configButton
 
     -- DRAW
     function window:Draw()
@@ -1126,7 +1346,7 @@ local function MakeWindow(params)
 
     -- HOVER
     function window:Hover(mx, my)
-        if self.closeButton and closeButton:Hover(mx, my) then return true end
+        if self.closeButton and self.closeButton:Hover(mx, my) then return true end
         if self.content then return self.content:Hover(mx, my) end
         return false
     end
@@ -1164,16 +1384,12 @@ local function MakeWindow(params)
 end
 
 
-local function buildDefIntersects(halfW, halfH, x1, z1, x2, z2)
-  return boolean
-end
-
 local function setJobList(unitID, placements, startIdx, endIdx, shift)
   if not unitID or not placements or not placements.positions then return end
   
   local order = buildOrder[unitID]
   if shift and order and order.buildDef == placements.buildDef and order.facing == placements.facing then
-    queue = order.queue --enqueue commands
+    --queue = order.queue --enqueue commands
   else
     clearUnitCommands(unitID)
 
@@ -1231,8 +1447,8 @@ local function setJobList(unitID, placements, startIdx, endIdx, shift)
           end
       end
   end
-
-  Echo("["..WIDGET_NAME.."] Build order of size "..(#queue).." set for unit "..unitID)
+  order.originalSize = (#queue)
+  Echo("Build Order for "..(#queue).."x "..placements.buildDef.name.." CREATED.", "success")
   return acceptedJobs
 
 end
@@ -1396,6 +1612,16 @@ local toBeReclaimed = {}
 
 local function updateWorker(unitid, entry)
   if not entry then return end
+  
+  local now = GetGameFrame()
+
+  if entry.updateDelay then
+    if entry.updateDelay > now then
+      return
+      else
+        entry.updateDelay = nil
+    end
+  end
 
   local queue = entry.queue
 
@@ -1405,11 +1631,10 @@ local function updateWorker(unitid, entry)
     if buildProgress and buildProgress >= entry.yoloplace then
       table.remove(entry.queue, 1)   -- drop the queue element, and yolo the next building
       entry.currentjob = nil
-      --Echo("["..WIDGET_NAME.."] Unit "..unitid.." yoloing its way to progress!")
+      --Echo("Unit "..unitid.." yoloing its way to progress!")
     end
   end
 
-  local now = GetGameFrame()
 
   local function checkAndClearSpace()
     local nextOrder = queue[1]
@@ -1429,6 +1654,7 @@ local function updateWorker(unitid, entry)
         end
         if removeNext then
           table.remove(queue, 1)   -- drop the queue element, osme block cannot be reclaimed
+          Echo("Skipping construction: "..entry.buildDef.name..": blocked by non-eraseable unit. ","warning")
         else
           for hitUnitID, _ in pairs(hits) do
             toBeReclaimed[hitUnitID] = true
@@ -1449,7 +1675,7 @@ local function updateWorker(unitid, entry)
   if not entry.currentjob then
     if not queue or #queue == 0 then
       buildOrder[unitid] = nil
-      Echo("["..WIDGET_NAME.."] UnitID " .. tostring(unitid) .. " finished build queue")
+      Echo("Build Order for "..entry.originalSize.."x "..entry.buildDef.name.." COMPLETED.", "success")
     else
       checkAndClearSpace()
     end
@@ -1467,6 +1693,7 @@ function widget:Update(dt)
 	  currentToolTip = nil
 	  local mx, my = Spring.GetMouseState()
 	  myUI:Hover(mx, my)
+    Notify.Update()
 	end
   
   --update all workers
@@ -1492,22 +1719,7 @@ local function ensureCircleOffsets()
   end
 end
 
-local full = {0.0, 0.4, 1.0, 0.4}    -- blue RGBA
-local empty = {1.0, 0.5, 0.0, 0.4}   -- orange RGBA
-
--- helper to interpolate two colors
-local function lerpColor(c1, c2, t)
-  local r = c1[1] * t + c2[1] * (1 - t)
-  local g = c1[2] * t + c2[2] * (1 - t)
-  local b = c1[3] * t + c2[3] * (1 - t)
-  local a = c1[4] * t + c2[4] * (1 - t)
-  return {r, g, b, a}
-end
-
 function DrawLineBetweenPoints(x1, y1, z1, x2, y2, z2)
-    color = color or {1, 1, 1, 1}  -- default white
-    width = width or 2
-
     gl.PushAttrib(GL.ALL_ATTRIB_BITS)
     gl.DepthTest(true)
 
@@ -1530,50 +1742,9 @@ function widget:DrawWorld()
   gl_DepthTest(true)
   gl_LineWidth(2)
 
-  for builderID, order in pairs(buildOrder) do
-    if order then
-      local ux, uy, uz = SpringGetUnitPosition(builderID)
-      if ux then
-       --[[
-        gl.Color(1,1,1,1)
-        gl.Texture("#"..order.buildDef.id)
-        local height = (Spring.GetUnitHeight(builderID) or 20) + 15 -- offset above turret
-        gl.PushMatrix()
-            gl.Translate(ux+18, uy + height, uz-18)
-            gl.Billboard() -- make it always face the camera
-            local size = 16 -- icon size in world units
-           -- gl.TexRect(-size, -size, size, size)
-
-            local text = "Job: "..order.currentjob.."\nQueue: "..(#order.queue)
-            gl.Color(1, 1, 0, 1) -- yellow text
-            gl.Text(text, 0, -size - 8, 16, "oc") -- (string, x, y, size, options)
-        gl.PopMatrix()
-]]
-        local color = lerpColor(full, empty, order.yoloplace)
-        gl.Color(color)
-        local radius = 35
-        local oy = (uy or 0) + 5
-        gl_BeginEnd(gl_BeginEnd_LINE_LOOP, function()
-          for j = 1, CIRCLE_SEGMENTS do
-            local off = circleOffsets[j]
-            gl_Vertex(ux + radius * off[1], oy, uz + radius * off[2])
-          end
-        end)
-
-
-        if order.currentjob and order.currentjob ~= -1 then
-          local tx, ty, tz = SpringGetUnitPosition(order.currentjob)
-          DrawLineBetweenPoints(ux, uy, uz, tx, ty, tz)
-        end
-      end
-    end
-  end
-  
-  local frameHasWorkerSelected = false
-  for _, unitID in ipairs(selectedUnits) do
-    local order = buildOrder[unitID]
+  local function drawBuildOrderPath(order, alpha)
+    local px, py, pz
     if order and order.queue then
-      frameHasWorkerSelected = true
       for idx = 1, #order.queue do
         local pos = order.queue[idx]
         local halfX, halfZ = order.halfX, order.halfZ
@@ -1582,9 +1753,9 @@ function widget:DrawWorld()
         local y = (SpringGetGroundHeight and SpringGetGroundHeight(pos.x, pos.z) or 0) + 5
 
         if idx == 1 then
-          gl_Color(1.0, 0.5, 0.0, 0.5)
+          gl_Color(1.0, 0.5, 0.0, alpha)
         else
-          gl_Color(0.0, 0.5, 1.0, 0.4)
+          gl_Color(0.0, 0.5, 1.0, alpha)
         end
 
         gl_BeginEnd(gl_BeginEnd_TRIANGLE_FAN, function()
@@ -1593,9 +1764,70 @@ function widget:DrawWorld()
           gl_Vertex(x2, y, z2)
           gl_Vertex(x1, y, z2)
         end)
+
+        if px then
+          gl_LineWidth(6)
+          DrawLineBetweenPoints(px, py, pz, pos.x, y, pos.z)
+        end
+
+        px = pos.x
+        py = y
+        pz = pos.z
       end
     end
   end
+
+  for builderID, order in pairs(buildOrder) do
+    if order then
+      
+      local ux, uy, uz = SpringGetUnitPosition(builderID)
+      if ux then
+        if DEBUG_MODE then
+          gl.Color(1,1,1,1)
+          gl.Texture("#"..order.buildDef.id)
+          local height = (Spring.GetUnitHeight(builderID) or 20) + 15 -- offset above turret
+          gl.PushMatrix()
+          gl.Translate(ux+18, uy + height, uz-18)
+          gl.Billboard() -- make it always face the camera
+          local size = 16 -- icon size in world units
+          -- gl.TexRect(-size, -size, size, size)
+          
+          local text = "Job: "..(order.currentjob or "nil").."\nQueue: "..(#order.queue)
+          gl.Text(text, 0, -size - 8, 16, "oc") -- (string, x, y, size, options)
+          gl.PopMatrix()
+        end
+        
+        local alpha = 0
+        if ALWAYS_DRAW_RENDER_PATH or DEBUG_MODE then alpha = 0.3 end
+        for _, unitID in ipairs(selectedUnits) do
+          if unitID == builderID then alpha = alpha + 0.3 break end
+        end
+        
+        if alpha > 0 then
+          drawBuildOrderPath(order, alpha)
+        end
+        
+        if order.currentjob and order.currentjob ~= -1 then
+          gl_LineWidth(2)
+          gl_Color(0.0, 0.5, 1.0, 0.4)
+          local tx, ty, tz = SpringGetUnitPosition(order.currentjob)
+          --draws a line from the constructor position to the working location
+          DrawLineBetweenPoints(ux, uy, uz, tx, ty, tz)
+          --draw a circle around the worker
+          local radius = 35
+          local oy = (uy or 0) + 5
+          gl_BeginEnd(gl_BeginEnd_LINE_LOOP, function()
+            for j = 1, CIRCLE_SEGMENTS do
+              local off = circleOffsets[j]
+              gl_Vertex(ux + radius * off[1], oy, uz + radius * off[2])
+            end
+          end)
+        end
+      end
+    end
+  end
+  
+  
   
   gl_LineWidth(1)
   gl_Color(1, 1, 1, 1)
@@ -1696,13 +1928,16 @@ function widget:UnitDestroyed(unitID, unitDefID, unitTeam)
     for builderID, entry in pairs(buildOrder) do
         if entry.currentjob == unitID then
             entry.currentjob = nil
-            Echo("["..WIDGET_NAME.."] Unit "..builderID.." lost a job lol")
+            if REPEAT then  entry.updateDelay = GetGameFrame() + 15 end
+            Echo("Unit "..builderID.." lost a "..entry.buildDef.name.." job", "warning")
         end
     end
 
     -- also remove buildOrder if the builder itself is destroyed
     if buildOrder[unitID] then
-        buildOrder[unitID] = nil
+      local entry = buildOrder[unitID]
+      Echo("Worker DESTROYED! "..(#entry.queue).."x "..entry.buildDef.name.." CANCELED.", "fail")
+      buildOrder[unitID] = nil
     end
     if knownYolos[unitID] then
       knownYolos[unitID] = nil
@@ -1712,7 +1947,9 @@ end
 function widget:UnitGiven(unitID, unitDefID, unitTeam, oldTeam)
     -- a builder changed team, remove its buildOrder entry
     if buildOrder[unitID] then
-        buildOrder[unitID] = nil
+      local entry = buildOrder[unitID]
+      Echo("Worker changed team "..(#entry.queue).."x "..entry.buildDef.name.." CANCELED.", "fail")
+      buildOrder[unitID] = nil
     end
     if knownYolos[unitID] then
       knownYolos[unitID] = nil
@@ -1722,7 +1959,9 @@ end
 function widget:UnitTaken(unitID, unitDefID, unitTeam, newTeam)
     -- a builder changed team, remove its buildOrder entry
     if buildOrder[unitID] then
-        buildOrder[unitID] = nil
+      local entry = buildOrder[unitID]
+      Echo("Worker changed team "..(#entry.queue).."x "..entry.buildDef.name.." CANCELED.", "fail")
+      buildOrder[unitID] = nil
     end
     if knownYolos[unitID] then
       knownYolos[unitID] = nil
@@ -1749,7 +1988,7 @@ local function optsHasShift(opts)
     return false
 end
 
-function setYoloPlace(val)
+local function setYoloPlace(val)
   local sel = GetSelectedUnits() or {}
   for _, uid in ipairs(sel) do
     knownYolos[uid] = val
@@ -1757,7 +1996,7 @@ function setYoloPlace(val)
       buildOrder[uid].yoloplace = val
     end
   end
-  Echo("["..WIDGET_NAME.."] YoloPlace "..val)
+  --Echo("Holo Place "..val)
 end
 
 function widget:CommandNotify(cmdID, cmdParams, cmdOptions)
@@ -1783,21 +2022,17 @@ function widget:CommandNotify(cmdID, cmdParams, cmdOptions)
       local sel = Spring.GetSelectedUnits() or {}
       for _, uid in ipairs(sel) do
           if buildOrder and buildOrder[uid] then
-              buildOrder[uid] = nil
+            local entry = buildOrder[uid]
+            if(#entry.queue > 1 or (#entry.queue == 1 and (not entry.currentjob or entry.currentjob == -1))) then
+              Echo("Worker received NEW COMMANDS. "..(#entry.queue).."x "..entry.buildDef.name.." CANCELED.", "warning")
+            end
+            buildOrder[uid] = nil
           end
       end
   end
 
   return false
 end
-
-local function DisableWidget()
-  SaveUserPreferences()
-	Echo("["..WIDGET_NAME.."] Closed")
-	widgetHandler:RemoveWidget(self)
-end
-
-
 
 function widget:Initialize()
  -- if Spring.GetSpectatingState() then
@@ -1817,11 +2052,10 @@ function widget:Initialize()
         maxTurretBuildDist = ud.buildDistance
       end
     end
+
   end
-
-  PRIORITY_LOOKUP = buildLookups(PRIORITY)
-  ERASEABLE_LOOKUP = buildLookups(ERASEABLE)
-
+  
+  InitializePriorityAndEraseables()
 
   if not UI then enableBuildOrders = true return end
 
@@ -1848,16 +2082,83 @@ function widget:Initialize()
   uiContentBox:Add(MakeCheckbox({
     text = "Enable Build Order",
     checked = enableBuildOrders,
-    tooltip = "Enable this widget to intercept and manage building commands.\nActive build orders will keep running!",
+    tooltip = "Enable this widget to intercept and manage building commands.\nDisabling does not terminate active Build Orders!",
     fontSize = 20,
     bgColor = {0,0,0,0},
     onToggle = function(state) 
       enableBuildOrders = not enableBuildOrders
       --if not enableBuildOrders then buildOrder = {}  end
-      Echo("["..WIDGET_NAME.."] Enable build orders: " .. (enableBuildOrders and "ON" or "OFF"))
+      Echo("Build Orders: " .. (enableBuildOrders and "ON" or "OFF"))
     end
   }))
 
+
+  uiConfigBox  = Box({bgColor = {0.15, 0.15, 0.15, 0}, orientation = "vertical", spacing = 4, padding = 4})
+  uiConfigBox:Add(MakeCheckbox({
+      text = "Repeat Mode",
+      checked = REPEAT,
+      tooltip = "Workers will repeat build orders again on the same place, if the construction get destroyed before it reachs the HOLO-PLACE value.",
+      fontSize = 16,
+      bgColor = {0,0,0,0},
+      onToggle = function(state) 
+        REPEAT = not REPEAT
+        Echo("Repeat: " .. (REPEAT and "ON" or "OFF"))
+      end
+    }))
+
+    uiConfigBox:Add(MakeCheckbox({
+      text = "Enable notifications",
+      checked = NOTIFICATIONS,
+      tooltip = "Widget will print brief custom event messages",
+      fontSize = 16,
+      bgColor = {0,0,0,0},
+      onToggle = function(state) 
+        NOTIFICATIONS = not NOTIFICATIONS
+        Echo("Notifications: " .. (NOTIFICATIONS and "ON" or "OFF"))
+      end
+    }))
+
+  uiConfigBox:Add(MakeCheckbox({
+      text = "Always Draw Queue",
+      checked = ALWAYS_DRAW_RENDER_PATH,
+      tooltip = "[❗NOT RECOMMENDED, THIS IS A DEBUG/DEVELOPMENT OPTION AND MIGHT CAUSE FPS ISSUES]\nAlways render the construction queue of your workers.",
+      fontSize = 16,
+      bgColor = {0,0,0,0},
+      onToggle = function(state) 
+        ALWAYS_DRAW_RENDER_PATH = not ALWAYS_DRAW_RENDER_PATH
+        Echo("Always Draw Queue: " .. (ALWAYS_DRAW_RENDER_PATH and "ON" or "OFF"))
+      end
+    }))
+    uiConfigBox:Add(MakeCheckbox({
+      text = "DEBUG",
+      checked = DEBUG_MODE,
+      tooltip = "[❗NOT RECOMMENDED, THIS IS A DEBUG/DEVELOPMENT OPTION AND MIGHT CAUSE FPS ISSUES]\nRender aditional data about Build Orders",
+      fontSize = 16,
+      bgColor = {0,0,0,0},
+      onToggle = function(state) 
+        DEBUG_MODE = not DEBUG_MODE
+        Echo("DEBUG MODE: " .. (DEBUG_MODE and "ON" or "OFF"))
+      end
+    }))
+
+    uiConfigBox:Add(MakeButton({
+      text = "  Create Custom Priority File   ",
+      tooltip = "Create at file at your widget folder to customize you priority list.\nThe widget will use the units defined on the file instead of the default ones.",
+      fontSize = 16,
+      bgColor = {0.6, 0.6, 0.6, 1},
+      onClick = function() 
+        CreateCustomFile("PRIORITY", DEFAULT_PRIORITY)
+      end
+    }))
+    uiConfigBox:Add(MakeButton({
+      text = "Create Custom Eraseable File",
+      tooltip = "Create at file at your widget folder to customize you eraseable list.\nThe widget will use the units defined on the file instead of the default ones.",
+      fontSize = 16,
+      bgColor = {0.6, 0.6, 0.6, 1},
+      onClick = function() 
+        CreateCustomFile("ERASEABLE", DEFAULT_ERASEABLE)
+      end
+    }))
   --uiContentBox:Add(uiNumOrdersLabel)
   uiContentBox:Add(uiQueuSizeLabel)
   --uiContentBox:Add(uiNumJobsLabel)
@@ -1870,7 +2171,7 @@ function widget:Initialize()
   }))]]
  -- uiContentBox:Add(uiButtonBox)
 
-  uiContentBox:Add(MakeLabel({bgColor =  {0.45, 0.16, 0.025, 1.0}, text = "DON'T PANIC!", fontSize = 14, tooltip = WIDGET_DESC}))
+  uiConfigBox:Add(MakeLabel({bgColor =  {0.45, 0.16, 0.025, 1.0}, text = "DON'T PANIC!", fontSize = 14, tooltip = WIDGET_DESC}))
 
   myUI = MakeWindow({
     title = WIDGET_NAME,
@@ -1878,7 +2179,6 @@ function widget:Initialize()
   	fontColor = {1, 0.6, 0.0, 1.0},
     bgColor = {0, 0, 0, 0.3},
     content = uiContentBox,
-    onClose = DisableWidget,
   })
   local vsx, vsy = gl.GetViewSizes()
   local w, h = myUI:GetSize()
@@ -1903,10 +2203,15 @@ function widget:DrawScreen()
     uiNumJobsLabel.text   = "In progress: "..numBuilding
 
     myUI:Draw()
-  end
+
+    if not NOTIFICATIONS then return end
+
+    Notify.DrawScreen(myUI.x + 8, myUI.y - myUI.height - 20)
+
+    end
 end
 
 function widget:Shutdown()
   SaveUserPreferences()
-	Echo("["..WIDGET_NAME.."] Closed")
+	Echo("Closed")
 end
