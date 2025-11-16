@@ -1638,6 +1638,13 @@ local function updateWorker(unitid, entry)
 
   local function checkAndClearSpace()
     local nextOrder = queue[1]
+
+    if nextOrder == nil then
+      entry.currentjob = -1
+      entry.queue = nil
+      return
+    end
+    
     local hits = findIntersectingUnits(entry, nextOrder.x, nextOrder.z, unitid)
     if next(hits) then -- check if hits has anything
         local removeNext = false
